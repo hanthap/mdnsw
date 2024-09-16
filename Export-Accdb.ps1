@@ -15,14 +15,11 @@ begin {
     $cmd = New-Object System.Data.OleDb.OleDbCommand
     $cmd.Connection = $cn
 
-    $parm1 = New-Object System.Data.OleDb.OleDbParameter
-    $parm2 = New-Object System.Data.OleDb.OleDbParameter
-    $parm3 = New-Object System.Data.OleDb.OleDbParameter
-
-    [void] $cmd.Parameters.Add( $parm1 )
-    [void] $cmd.Parameters.Add( $parm2 )
-    [void] $cmd.Parameters.Add( $parm3 )
-
+    $p = $cmd.Parameters
+    foreach( $i in 1..3 ) { 
+        [void]$p.Add( ( New-Object System.Data.OleDb.OleDbParameter )  )
+        }
+    
     $sql = "insert into Case_Note__c ( Id, Notes__c, Action_Detail__c ) values ( ?, ?, ? )"
     $cmd.CommandText = $sql
 
@@ -30,10 +27,10 @@ begin {
 
 process {
 
-    $parm1.Value = $o.Id
+    $p[0].Value = $o.Id
     # skip null bytes
-    try { $parm2.Value = $o.Notes__c.Substring(1) } catch { $parm2.Value = '' } 
-    try { $parm3.Value = $o.Action_Detail__c.Substring(1) } catch { $parm3.Value = '' } 
+    try { $p[1].Value = $o.Notes__c.Substring(1) } catch { $p[1].Value = '' } 
+    try { $p[2].Value = $o.Action_Detail__c.Substring(1) } catch { $p[2].Value = '' } 
 
     [void] $cmd.ExecuteNonQuery()  #returns number of rows
 
@@ -48,7 +45,7 @@ end {
 $csvPath = 'C:\Users\PeterLuckock\Downloads\Case_Note__c.csv'
 $accdbPath = 'C:\Users\PeterLuckock\Downloads\test.accdb'
 
-Get-Content $csvPath -TotalCount 1000 | 
+Get-Content $csvPath -TotalCount 10 | 
     ConvertFrom-Csv | 
         Append-Accdb -Path $accdbPath
 
@@ -74,3 +71,15 @@ end {
 }
 
 #>
+
+
+$cmd = New-Object System.Data.OleDb.OleDbCommand
+
+foreach( $i in 1..3 ) { 
+
+[void]$cmd.Parameters.Add( ( New-Object System.Data.OleDb.OleDbParameter )  )
+
+ }
+
+
+ $cmd.Parameters[0] = "avc"
