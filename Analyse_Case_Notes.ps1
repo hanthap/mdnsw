@@ -8,8 +8,6 @@ Import-Csv $raw_csv |
     Select-Object Client_Name__c, Id,OwnerId,CreatedDate,Carer_Name__c, Case_Worker__c, Name |
     Export-Csv -Path $clean_csv -NoTypeInformation # save this between PS sessions
 
-
-
 $indata = Import-Csv -Path $clean_csv # reload from disk
 
 # now check for potential duplicates 
@@ -17,12 +15,14 @@ $indata = Import-Csv -Path $clean_csv # reload from disk
 
 $latest_casenote_csv = "$unzippedRoot\LatestCaseNotePerClientName.csv" 
 
-$indata | Group Client_Name__c | Foreach-Object { $_.Group | Sort-Object CreatedDate | Select-Object -Last 1 } | 
+$indata | Group Client_Name__c | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object CreatedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_casenote_csv
 
 $LatestCaseNotePerClientName = Import-Csv -Path $latest_casenote_csv
 
 $LatestCaseNotePerClientName.Count # 1047
+
+$LatestCaseNotePerClientName | select -first 20 | ft
 
 #------------------------------------------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ $indata = Import-Csv -Path $clean_csv # reload from disk
 
 $latest_attachment_csv = "$unzippedRoot\LatestAttachmentPerParent.csv" 
 
-$indata | Group ParentId | Foreach-Object { $_.Group | Sort-Object CreatedDate | Select-Object -Last 1 } | 
+$indata | Group ParentId | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object CreatedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_attachment_csv
 
 $LatestAttachmentPerParent = Import-Csv -Path $latest_attachment_csv
@@ -68,7 +68,7 @@ $indata = Import-Csv -Path $clean_csv # reload from disk
 
 $latest_opportunity_csv = "$unzippedRoot\LatestOpportunityPerContact.csv" 
 
-$indata | Group ContactId | Foreach-Object { $_.Group | Sort-Object CreatedDate | Select-Object -Last 1 } | 
+$indata | Group ContactId | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object CreatedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_opportunity_csv
 
 $LatestOpportunityPerContact = Import-Csv -Path $latest_opportunity_csv
@@ -94,12 +94,10 @@ Import-Csv $raw_csv |
 
 $indata = Import-Csv -Path $clean_csv # reload from disk
 
-# $indata | ft # N=51785
-
 
 $latest_task_who_csv = "$unzippedRoot\LatestTaskPerWho.csv" 
 
-$indata | Group WhoId | Foreach-Object { $_.Group | Sort-Object CreatedDate | Select-Object -Last 1 } | 
+$indata | Group WhoId | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object CreatedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_task_who_csv
 
 $LatestTaskPerWho = Import-Csv -Path $latest_task_who_csv
@@ -109,7 +107,7 @@ $LatestTaskPerWho.Count # N=6332
 
 $latest_task_client_csv = "$unzippedRoot\LatestTaskPerClient.csv" 
 
-$indata | Group Client_Name__c | Foreach-Object { $_.Group | Sort-Object CreatedDate | Select-Object -Last 1 } | 
+$indata | Group Client_Name__c | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object CreatedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_task_client_csv
 
 $LatestTaskPerClient = Import-Csv -Path $latest_task_client_csv
@@ -134,7 +132,7 @@ $indata = Import-Csv -Path $clean_csv # reload from disk
 
 $latest_CampaignMemberCreated_csv = "$unzippedRoot\LatestCampaignMemberCreatedPerContact.csv" 
 
-$indata | Group ContactId | Foreach-Object { $_.Group | Sort-Object CreatedDate | Select-Object -Last 1 } | 
+$indata | Group ContactId | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object CreatedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_CampaignMemberCreated_csv
 
 $LatestCampaignMemberCreatedPerContact = Import-Csv -Path $latest_CampaignMemberCreated_csv
@@ -144,7 +142,7 @@ $LatestCampaignMemberCreatedPerContact.Count # N=24517
 
 $latest_CampaignMemberResponded_csv = "$unzippedRoot\LatestCampaignMemberRespondedPerContact.csv" 
 
-$indata | Where-Object FirstRespondedDate -gt '' | Group ContactId | Foreach-Object { $_.Group | Sort-Object FirstRespondedDate | Select-Object -Last 1 } | 
+$indata | Where-Object FirstRespondedDate -gt '' | Group ContactId | Foreach-Object { $Count=$_.Count; $_.Group | Sort-Object FirstRespondedDate | Select-Object *, @{n='Count';e={$Count}} -Last 1 } | 
     Export-Csv -NoTypeInformation -Path $latest_CampaignMemberResponded_csv
 
 $LatestCampaignMemberRespondedPerContact = Import-Csv -Path $latest_CampaignMemberResponded_csv
