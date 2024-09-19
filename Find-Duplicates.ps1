@@ -2,11 +2,8 @@
 $Contact_raw_csv = "$unzippedRoot\Contact.csv" 
 $Contact_raw_subset_csv = "$unzippedRoot\Contact_raw_subset.csv" 
 
-Get-Content $Contact_raw_csv -TotalCount 2 | ConvertFrom-Csv
-
-
 Import-Csv $Contact_raw_csv | 
-Select-Object Id, # list ALL columns in scope for migration
+Select-Object Id, # ALL non-trivial columns in scope for migration
 Salutation,FirstName,LastName,Email,MobilePhone,Birthdate,CreatedDate,
 LastActivityDate,Funraisin__Funraisin_Id__c,NDIS_No__c,ONEN_Household__c,RecordTypeId,
 MDANSW_ID__c,
@@ -142,10 +139,11 @@ npsp__Number_of_Soft_Credits_Two_Years_Ago__c,
 npsp__Number_of_Soft_Credits__c,
 npsp__Soft_Credit_Last_N_Days__c,
 receive_Talking_Point__c,
-volunteering__c |
-Export-Csv -Path $Contact_raw_subset_csv -NoTypeInformation # cache this between PS sessions
+volunteering__c | 
+Export-Csv -Path $Contact_raw_subset_csv -NoTypeInformation -Delimiter '|' # pipe delimiter instead of comma, just so that PowerQuery can import values with embedded linefeeds 
+# PowerQuery reads this file but we don't use it here.
 
-Get-Content $Contact_raw_subset_csv -TotalCount 5 | ConvertFrom-Csv
+Import-Csv $Contact_raw_subset_csv -Delimiter '|' | Select -first 20 
 
 #--------------------------------------------------------------------
 
@@ -200,10 +198,10 @@ $w = @{
 
 #--------------------------------------------------------------------
 
-# A subset of CLEANSED PII columns that we will use for detecting possible duplicates
-# Sorting (eg by last activity date) will be done later in PowerQuery after joining with other csv datasets and removing 'Archived' Contact records
+# A subset of (cleansed) PII columns that we will use here for detecting possible duplicates
+# Sorting (eg by last activity date) will be done later in PowerQuery after joining with other csv datasets (and removing 'Archived' Contact records)
 
-$Contact_raw_csv = "$unzippedRoot\Contact.csv" 
+$Contact_raw_csv = "$unzippedRoot\Contact.csv" # straight from Salesforce
 $Contact_clean_subset_csv = "$unzippedRoot\Contact_clean_subset.csv" 
 
 Import-Csv -LiteralPath $Contact_raw_csv | select -first 10
@@ -218,7 +216,7 @@ Import-Csv $Contact_raw_csv |
         MobilePhone,
         ONEN_Household__c,
         CreatedDate | 
-    ForEach-Object {  # improve signal strength in some group-by fields
+    ForEach-Object {  # remove irrelevant characters => better signal strength
     $_.FirstName=strim($_.FirstName);
     $_.LastName=strim($_.LastName);
     try { $_.DepartmentGroup=$_.FirstName.SubString(0,1)+$_.LastName.SubString(0,1) } catch { };  # re-purposed to store initials
