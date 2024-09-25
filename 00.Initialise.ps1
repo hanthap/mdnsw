@@ -18,6 +18,99 @@ $outRoot = $env:OneDriveCommercial
 # other files will be moved to a 'discard' folder
 $skipFolder = "$unzippedRoot\Skipped"
 
+# path to an unmasked PII file used for de-duping,  
+$Contact_clean_pii_csv = "$unzippedRoot\Contact_clean_pii.csv" 
+
+#------------------------------------------------------------------------
+
+function Get-Initials ( $a )
+{
+    foreach ( $w in $a ) {
+        try {  $rv += $w[0] } catch { }
+    }
+    return $rv.ToUpper()
+}
+
+#------------------------------------------------------------------------
+
+function mask( $s ) {
+return $s -replace "(\w)(\w)", "`${1}`${1}"
+}
+
+#------------------------------------------------------------------------
+
+function Redact-Columns { 
+
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory, ValueFromPipeline)] [PSObject] $obj,
+      $ColumnNames = @()
+      )
+
+process {
+
+        # scramble PII fields
+        foreach( $c in $ColumnNames ) {
+            $obj.$c = mask $obj.$c
+            }
+
+    $obj # send down the pipe
+
+    } # end process
+
+} # end function
+
+
+#------------------------------------------------------------------------
+
+function ntrim( $s ) {
+try { 
+return $s -replace '\D', '' 
+} catch { return '' }
+}
+
+#------------------------------------------------------------------------
+
+function strim( $s ) {
+try {
+return $s.ToUpper()  -replace '[^A-Z]', '' 
+} catch { return '' }
+}
+
+#------------------------------------------------------------------------
+
+function Clean-Address($a) {
+
+    $s = [system.String]::Join('¦', $a.trim())
+    if ( $s -imatch "description|do not|no address|no details" -or $s.length -lt 8 ) { 
+        $s = ''
+    }
+    return $s
+}
+
+#------------------------------------------------------------------------
+
+Function Where-KeyMatch { 
+
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory, ValueFromPipeline)] [PSObject] $obj,
+      [string] $KeyName='Id', 
+      $LookupTable = @{} # typically the result of Group-Object -AsHashTable
+      )
+
+process {
+    if ( $LookupTable[$obj.$KeyName].Count -gt 0 ) {  $obj }
+
+} # end process
+
+} # end function
+
+#------------------------------------------------------------------------
+
+
+<#
+
 # load the map into session memory (hashing takes several minutes)
 $map = Import-Csv -Path "$downloads\qryAttachmentScope.csv" | 
 #    Select -First 100 |
@@ -25,3 +118,4 @@ $map = Import-Csv -Path "$downloads\qryAttachmentScope.csv" |
 
 $map.Count # 33498 - should agree with source query in Access
 
+#>
