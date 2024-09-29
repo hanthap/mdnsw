@@ -29,22 +29,22 @@ $Contact_clean_pii = Import-Csv -Path $Contact_clean_pii_csv | Where-Object Memb
 
 # now check for plausible duplicates using various criteria 
 $dupName   = $Contact_clean_pii | Group LastName,FirstName | Where Count -gt 1
-$dupName.Count # 791 => 681 after excluding archived - includes many 'namesakes' (logically distinct people with same name)
+$dupName.Count # 791 => 681 => 651 after excluding archived - includes many 'namesakes' (logically distinct people with same name)
 
-# matching by mobile & email detects a few extra pairs that are 'obviously' the same person but have changed surname and/or 'familiar' first name.
+# matching by mobile & email detects a few extra pairs that are 'obviously' the same person despite understandable variations in surname and/or first name.
 # We need to add at least one other field to reduce the noise. (Still this is not immune to the funraisin problem reported by Gracia.)
 
 $dupMobile1 = $Contact_clean_pii | Where MobilePhone -gt '' | Group MobilePhone,FirstName | Where Count -gt 1
-$dupMobile1.Count # 55 => 48
+$dupMobile1.Count # 55 => 48 => 29
 
 $dupMobile2 = $Contact_clean_pii | Where MobilePhone -gt '' | Group MobilePhone,Initials | Where Count -gt 1
-$dupMobile2.Count # 95 => 84
+$dupMobile2.Count # 95 => 84 => 66
 
 $dupEmail1  = $Contact_clean_pii | Where Email -gt '' | Group Email,FirstName | Where Count -gt 1
-$dupEmail1.Count # 86 => 84
+$dupEmail1.Count # 86 => 84 => 55
 
 $dupDOB = $Contact_clean_pii | Where Birthdate -gt '1900' | Group Birthdate,Initials | Where Count -gt 1
-$dupDOB.Count # 62 => 52
+$dupDOB.Count # 62 => 52 => 53!
 
 # there are no duplicate NDIS refs. Probably enforced unique constraint! BUT, one that could be easily fooled by embedded noise eg space characters
 #$dupNDIS = $Contact_clean_pii | Where NDIS_No__c -gt '' | Group NDIS_No__c | Where Count -gt 1
@@ -102,7 +102,7 @@ $d1 + $d2 + $d3 + $d4 + $d5 | Export-Csv -Path $outcsv -NoTypeInformation
 
 $allDuplicates = Import-Csv $outcsv
 
-$allDuplicates.Count # 2266 => 1958
+$allDuplicates.Count # 2266 => 1958 => 1767
 
 #--------------------------------------------------------------------
 

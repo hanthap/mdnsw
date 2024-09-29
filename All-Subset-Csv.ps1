@@ -5,23 +5,23 @@ Import-Csv  $Contact_clean_pii_csv |
 Where-Object Membership__c -ne 'Archive'  | # explicit assumption
 Select-Object Id, FirstName, LastName |
 ForEach-Object { $contact_in_scope[$_.Id] = $_.FirstName + ' ' + $_.LastName }  # TO DO - value could be the post-merge 'primary' Contact Id 
-$contact_in_scope.Count # 36404
+$contact_in_scope.Count # 36404 => 36417
 
-# Many ONEN_Household records are obvously duplicates.
+# Many ONEN_Household records are obviously duplicates.
 # 99% of these are resolved by excluding hholds with no Contacts in scope
 
 $hhold_in_scope = Import-Csv  $Contact_clean_pii_csv | 
 Where-Object Membership__c -ne 'Archive'  | # explicit assumption
 Select-Object ONEN_Household__c |
 Group-Object ONEN_Household__c -AsHashTable
-$hhold_in_scope.count # 1313
+$hhold_in_scope.count # 1313 => 1313
 
 
 #--------------------------------------------------------------------
 # ACCOUNTS
 
 Import-Csv "$unzippedRoot\Account.csv" |
-Redact-Columns -ColumnNames @( 'Name', 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  |
+#Redact-Columns -ColumnNames @( 'Name', 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  |
 Where-Object Membership__c -ne 'Archive' |
 Select-Object Id,
 RecordTypeId,
@@ -57,14 +57,14 @@ Website,
 # ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry,
 @{Name='BillingAddress'; Expression={ Clean-Address $_.BillingStreet, $_.BillingCity, $_.BillingState, $_.BillingPostalCode, $_.BillingCountry } }, 
 @{Name='ShippingAddress'; Expression={ Clean-Address $_.ShippingStreet, $_.ShippingCity, $_.ShippingState, $_.ShippingPostalCode, $_.ShippingCountry } }  |
-Export-Csv -NoTypeInformation -Delimiter '|' -Path "$unzippedRoot\Account_subset.csv"
+Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\Account_subset.csv" 
 
 #--------------------------------------------------------------------
 # CONTACTS
 
 Import-Csv "$unzippedRoot\Contact.csv" | 
 Where-KeyMatch -KeyName Id -LookupTable $contact_in_scope |
-Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
+#Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
 Select-Object Id, # ALL non-trivial columns in scope for migration
 Salutation,FirstName,LastName,Email,MobilePhone,Birthdate,CreatedDate,
 LastActivityDate,Funraisin__Funraisin_Id__c,NDIS_No__c,ONEN_Household__c,RecordTypeId,
@@ -199,13 +199,16 @@ ForEach-Object { # a bit of scrubbing
     $_.NDIS_No__c = ntrim( $_.NDIS_No__c )
     $_
     } |
-Export-Csv -NoTypeInformation -Delimiter '|' -Path "$unzippedRoot\Contact_raw_subset.csv" 
+# ReportsToId is the only Lookup(Contact). There are 11 Contacts in scope with a non-blank ReportsToId
+# Update-Properties -HashTable $contact_ids_to_merge -PropertyList @( 'ReportsToId' ) |
+Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\Contact_raw_subset.csv"
 
 #-------------------------------------------------------------------------
 # CAMPAIGN MEMBERS
 
 Import-Csv "$unzippedRoot\CampaignMember.csv" | 
-Where-Object Funraisin__Is_Archived__c -ne 'Y' |  
+# Easier in PowerQuery : DO NOT MIGRATE Campaign member record type.Name in ( 'Care for Carers', 'Tour Duchenne' )
+# Where-Object Funraisin__Is_Archived__c -ne 'Y' |  
 Where-KeyMatch -KeyName ContactId -LookupTable $contact_in_scope |
 Select-Object Id,
 #IsDeleted,
@@ -215,36 +218,38 @@ ContactId,
 CreatedById,
 CreatedDate,
 FirstRespondedDate,
-# Fundraiser_URL__c,
-# Funraisin__Fundraising_Target__c,
-# Funraisin__Funraisin_Id__c,
-# Funraisin__History_Type__c,
-# Funraisin__Is_Active__c,
-# Funraisin__Is_Archived__c,
-# Funraisin__Is_Paid__c,
-# Funraisin__Number_Seats__c,
+Fundraiser_URL__c,
+Funraisin__Fundraising_Target__c,
+Funraisin__Funraisin_Id__c,
+Funraisin__History_Type__c,
+Funraisin__Is_Active__c,
+Funraisin__Is_Archived__c,
+Funraisin__Is_Paid__c,
+Funraisin__Number_Seats__c,
 # Funraisin__Seat_Number__c,
 # Funraisin__Team__c,
 # Handicap__c,
 HasResponded,
-# How_did_you_hear_about_this_challenge__c,
-# LastModifiedById,
-# LastModifiedDate,
+LastModifiedById,
+LastModifiedDate,
 # LeadId,
-# Number_Attending__c,
 Status,
 # SystemModstamp,
 # Team_Captain_name__c,
 # Team_Name__c,
 # Team_URL__c,
-# wbsendit__Activity_Date__c,
-# wbsendit__Activity__c,
-# wbsendit__Clicks__c,
-wbsendit__Opens__c |
+wbsendit__Activity_Date__c,
+wbsendit__Activity__c,
+wbsendit__Clicks__c,
+wbsendit__Opens__c,
 # What_type_of_team_are_you_registering_as__c,
 # Why_did_you_choose_to_enter_this_challen__c,
 # Workplace_School_Name__c 
-Export-Csv -NoTypeInformation -Delimiter '|' "$unzippedRoot\CampaignMember_subset.csv"
+# 27/9/24 MH requested add next 2:
+Number_Attending__c, 
+How_did_you_hear_about_this_challenge__c |
+Update-Properties -HashTable $contact_ids_to_merge -PropertyList @( 'ContactId' ) | 
+Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\CampaignMember_subset.csv"
 
 #-------------------------------------------------------------------------
 
@@ -252,6 +257,7 @@ Export-Csv -NoTypeInformation -Delimiter '|' "$unzippedRoot\CampaignMember_subse
 
 Import-Csv "$unzippedRoot\Campaign.csv" | 
 # Where-Object Funraisin__Is_Archived__c -ne 'Y' |  #TO DO : CRITERIA?
+Where-Object { $_.CampaignMemberRecordTypeId -ne '' -or $_.Id -eq '701800000006lLHAAY' } | # workaround: keep General Donations even though it has no CampaignMemberRecordTypeId (27/9/24)
 Redact-Columns -ColumnNames @( 'Description', 'Name' ) |
 Select-Object Id, 
 Name,
@@ -391,17 +397,17 @@ wbsendit__Num_Unique_Opens__c,
 wbsendit__Num_Unsubscribed__c,
 wbsendit__Tags__c,
 wbsendit__World_View_Email_Tracking__c |
-Export-Csv -NoTypeInformation -Delimiter '|' "$unzippedRoot\Campaign_subset.csv"
+Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\Campaign_subset.csv"
 
 #-------------------------------------------------------------------------
 # HOUSEHOLDS
 
 Import-Csv "$unzippedRoot\ONEN_Household__c.csv" | 
 Where-KeyMatch -LookupTable $hhold_in_scope | # skip any households that have no current in-scope contacts. (This removes 99% of duplicated households.)
-Redact-Columns -ColumnNames @( 'Name', 'MailingStreet__c', 'Unique_Household__c', 'Recognition_Name_Short__c', 'Recognition_Name__c' ) |
+#Redact-Columns -ColumnNames @( 'Name', 'MailingStreet__c', 'Unique_Household__c', 'Recognition_Name_Short__c', 'Recognition_Name__c' ) |
 Select-Object *, 
 @{Name='MailingAddress'; Expression={ Clean-Address $_.MailingStreet__c, $_.MailingCity__c, $_.MailingState__c, $_.MailingPostalCode__c, $_.MailingCountry__c } } |
-Export-Csv -NoTypeInformation -Delimiter '|' "$unzippedRoot\ONEN_Household__c_subset.csv"
+Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\ONEN_Household__c_subset.csv"
 
 
 #------------------------------------------------------------------------
@@ -465,27 +471,28 @@ StageName,
 StageSortOrder,
 Status__c,
 Tax_Code__c,
-Type,
-npsp__Batch_Number__c,
-npsp__CommitmentId__c,
-npsp__Grant_Period_End_Date__c,
-npsp__Grant_Period_Start_Date__c,
-npsp__Grant_Program_Area_s__c,
-npsp__Grant_Requirements_Website__c, 
-npsp__Primary_Contact__c,
-npsp__Requested_Amount__c  |
-#
-Export-Csv -Delimiter '|' -NoTypeInformation -Path "$unzippedRoot\Opportunity_subset.csv" 
+Type |
+# skip these as they're all empty
+# npsp__Batch_Number__c, 
+# npsp__CommitmentId__c,
+# npsp__Grant_Period_End_Date__c,
+# npsp__Grant_Period_Start_Date__c,
+# npsp__Grant_Program_Area_s__c,
+# npsp__Grant_Requirements_Website__c, 
+# npsp__Primary_Contact__c,
+# npsp__Requested_Amount__c 
+Update-Properties -HashTable $contact_ids_to_merge -PropertyList @( 'ContactId', 'Contact__c', 'Fundraiser_Name__c', 'Funraisin__Fundraiser__c', 'Funraisin__Primary_Contact__c' ) | 
+Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Opportunity_subset.csv" 
 
 #-------------------------------------------------------------------------------
 # CASE NOTES
 
 Import-Csv "$unzippedRoot\Case_Note__c.csv" | 
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
-Redact-Columns -ColumnNames @( 'Name',  'Action__c' )  |
+Redact-Columns -ColumnNames @( 'Name' ) | 
 Select-Object Id,
 Name,
-Action__c,
+Action__c, # do not mask this
 Carer_Name__c,
 Case_Worker__c,
 Client_Name__c,
@@ -500,22 +507,22 @@ LastModifiedById,
 LastModifiedDate,
 Location_of_service_delivery__c,
 NDIS_Billable__c,
-# we will export these 2 HTML columns directly to accdb. (Access can't import csv records longer than 32k)
+#  These 2 HTML columns are imported directly to accdb. (Access can't import csv records longer than 32k)
 # Action_Detail__c,
 # Notes__c, 
 OwnerId |
-Export-Csv -Delimiter '|' -NoTypeInformation -Path "$unzippedRoot\Case_Note__c_subset.csv"
+Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Case_Note__c_subset.csv"
 
 
 #-------------------------------------------------------------------------------
 
 #TASKS
 
-# Where-KeyMatch only supports a single KeyName. We use '+' to concatenate 2 filtered resultsets, so need to dedupe later.
+# Where-KeyMatch only supports a single KeyName. We use '+' to concatenate 2 filtered resultsets. Therefore need to dedupe later.
 ( Import-Csv "$unzippedRoot\Task.csv" | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope ) + 
 ( Import-Csv "$unzippedRoot\Task.csv" | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName WhoId -LookupTable $contact_in_scope ) |
 # Select -First 500 |
-Redact-Columns -ColumnNames @( 'Subject', 'Description' )  |
+# Redact-Columns -ColumnNames @( 'Subject', 'Description' )  |
 Select-Object Id,
 Client_Name__c,
 # Type, # Email or Blank (Non blank are all Archived
@@ -570,4 +577,4 @@ Status,
 WhatCount,
 WhatId,
 WhoCount |
-Export-Csv -Delimiter '|' -NoTypeInformation -Path "$unzippedRoot\Task_subset.csv"
+Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8  -Path "$unzippedRoot\Task_subset.csv"
