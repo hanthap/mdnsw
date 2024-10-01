@@ -1,4 +1,67 @@
-﻿
+﻿#---------------------------------------------------------------------------------------------
+
+
+function Trim-Html {
+
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory, ValueFromPipeline)] [PSObject] $obj,
+      $PropertyList=@('Notes__c'),
+      $MaxLength = 32768,
+      [string] $ReplaceWithText = '<H3 style="color: red">[Embedded image removed due to Maica 32k character limit]</H3>',
+      [string] $TruncatedWarning = '<H3 style="color: red">[End of text not included due to Maica 32k character limit]</H3>',
+      [System.Text.RegularExpressions.RegexOptions] $RegexOptions = ([System.Text.RegularExpressions.RegexOptions]::RightToLeft)
+      )
+
+begin {
+
+
+    $rxFooter = New-Object -TypeName regex -ArgumentList '\<img alt="email footer".*\<\/img\>', ($RegexOptions)
+    $rxAny = New-Object -TypeName regex -ArgumentList '\<img.*\<\/img\>', ($RegexOptions)
+    [regex] $rxRubbish = '�| style=""'
+
+}
+
+process {
+
+
+    foreach( $PropName in $PropertyList ) {
+
+            $s = $obj.$PropName 
+
+            if ( $s.Length -gt 1 ) {
+                #$s = $s.Substring(1) # skip zero byte
+                #remove all "email footer" images with no warning text
+                [void]$s.Replace( '<span.*></span>', '' ) # junk span tags
+                $s = $rxFooter.Replace( $s, '' ) 
+                $s = $rxRubbish.Replace( $s, '' ) 
+
+                #  insert warning message in place of the last (up to N remaining) images
+                for ( $i=0; $i -lt 10 -and $s.Length -gt $MaxLength; $i++ ) {
+                    #remove all footer images 
+                     $s = $rxAny.Replace( $s, $ReplaceWithText, 1 ) 
+                }
+
+                if ( $s.Length -gt $MaxLength ) { # still too big
+                    $s = ' ' + $TruncatedWarning + $s.Substring(1) # extra space at start?
+                    $s = $s.Substring(0,$MaxLength)
+                }
+            }
+
+            $obj.$PropName = $s
+        }
+
+
+    $obj
+
+    }
+
+}
+
+
+#---------------------------------------------------------------------------------------------
+
+
 function Append-Accdb {
 
 param( 
@@ -39,11 +102,13 @@ end {
 
 }
 
-Import-Csv "$unzippedRoot\Case_Note__c.csv" | 
+#---------------------------------------------------------------------------------------------
+
+
+Import-Csv "$unzippedRoot\Case_Note__c.csv" -Encoding UTF8 | # NOT UTF7!
+Where-Object LastModifiedDate -ge '2022' | # Only migrate case notes from 2022-2024 (Jess, 30/9/24)
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
 Select-Object -First 1000 |
-# surgically excise large embedded graphic only if it's an email footer. (Other embedded graphics should be preserved in case they're important documents or photos.)
-ForEach { $_.Notes__c = $_.Notes__c -replace '\<img alt="email footer".*\<\/img\>', '<img alt="email footer">FOOTER IMAGE REMOVED</img>'; $_ } |
-#Redact-Columns -ColumnNames @( 'Notes__c',  'Action_Detail__c' )  | # this would mess up the HTML tags
+Trim-Html -PropertyList @( 'Notes__c', 'Action_Detail__c' ) |
 Append-Accdb -Path "$unzippedRoot\Case_Note__c.accdb"
 
