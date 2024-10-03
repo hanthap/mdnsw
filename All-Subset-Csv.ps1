@@ -21,9 +21,10 @@ $hhold_in_scope.count # 1313 => 1313
 # ACCOUNTS
 
 Import-Csv "$unzippedRoot\Account.csv" -Encoding UTF7 | # "Bush Rock Café" (Dunno why UTF8 doesn't do the [é] properly)
-#Redact-Columns -ColumnNames @( 'Name', 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  |
-Redact-Columns -ColumnNames @( 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  | # Keith asked for Name to be unmasked, 30/9/24
 Where-Object Membership__c -ne 'Archive' |
+Redact-Columns -ColumnNames @( 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  | # Keith asked for Name to be unmasked, 30/9/24
+# Update-Properties -PropertyList @( ) -HashTable $contact_ids_to_merge |
+
 Select-Object Id,
 RecordTypeId,
 Type,
@@ -65,7 +66,7 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 
 Import-Csv "$unzippedRoot\Contact.csv" -Encoding UTF7 | 
 Where-KeyMatch -KeyName Id -LookupTable $contact_in_scope |
-#Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
+Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
 Select-Object Id, # ALL non-trivial columns in scope for migration
 Salutation,FirstName,LastName,Email,MobilePhone,Birthdate,CreatedDate,
 LastActivityDate,Funraisin__Funraisin_Id__c,NDIS_No__c,ONEN_Household__c,RecordTypeId,
@@ -249,7 +250,7 @@ wbsendit__Opens__c,
 # 27/9/24 MH requested add next 2:
 Number_Attending__c, 
 How_did_you_hear_about_this_challenge__c |
-Update-Properties -HashTable $contact_ids_to_merge -PropertyList @( 'ContactId' ) | 
+Update-Properties -PropertyList @( 'ContactId' ) -HashTable $contact_ids_to_merge |
 Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\CampaignMember_subset.csv"
 
 #-------------------------------------------------------------------------
@@ -403,9 +404,10 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 #-------------------------------------------------------------------------
 # HOUSEHOLDS
 
-Import-Csv "$unzippedRoot\ONEN_Household__c.csv" -Encoding UTF7 | 
+Import-Csv "$unzippedRoot\ONEN_Household__c.csv" -Encoding UTF7 |
 Where-KeyMatch -LookupTable $hhold_in_scope | # skip any households that have no current in-scope contacts. (This removes 99% of duplicated households.)
-#Redact-Columns -ColumnNames @( 'Name', 'MailingStreet__c', 'Unique_Household__c', 'Recognition_Name_Short__c', 'Recognition_Name__c' ) |
+Redact-Columns -ColumnNames @( 'Name', 'MailingStreet__c', 'Unique_Household__c', 'Recognition_Name_Short__c', 'Recognition_Name__c' ) |
+# there are no Lookup(Contact) ids to be remapped
 Select-Object *, 
 @{Name='MailingAddress'; Expression={ Clean-Address $_.MailingStreet__c, $_.MailingCity__c, $_.MailingState__c, $_.MailingPostalCode__c, $_.MailingCountry__c } } |
 Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\ONEN_Household__c_subset.csv"
@@ -488,16 +490,16 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot
 #-------------------------------------------------------------------------------
 # CASE NOTES
 
-Import-Csv "$unzippedRoot\Case_Note__c.csv" -Encoding UTF7 | 
+Import-Csv "$unzippedRoot\Case_Note__c.csv"  -Encoding UTF8 | # NOT UTF7!
 Where-Object LastModifiedDate -ge '2022' | # Only migrate case notes from 2022-2024 (Jess, 30/9/24)
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
-Redact-Columns -ColumnNames @( 'Name' ) | 
+Redact-Columns -ColumnNames @( 'Name' ) |  #  Keith asked for Action_c to be unmasked 30/9/24
 Select-Object Id,
 Name,
 Action__c, # do not mask this
-Carer_Name__c,
-Case_Worker__c,
-Client_Name__c,
+Carer_Name__c, #  Lookup(Contact) 
+Case_Worker__c, # Lookup(User)
+Client_Name__c, #  Lookup(Contact)
 CreatedById,
 CreatedDate,
 Date__c,
@@ -513,6 +515,8 @@ NDIS_Billable__c,
 # Action_Detail__c,
 # Notes__c, 
 OwnerId |
+# Currently no (in scope) case notes are related to merged contacts, but just in case...
+Update-Properties -PropertyList @( 'Client_Name__c', 'Carer_Name__c' ) -HashTable $contact_ids_to_merge | 
 Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Case_Note__c_subset.csv"
 
 
@@ -523,12 +527,11 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot
 # Where-KeyMatch only supports a single KeyName. We use '+' to concatenate 2 filtered resultsets. Therefore need to dedupe later.
 ( Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF7 | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope ) + 
 ( Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF7 | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName WhoId -LookupTable $contact_in_scope ) |
-# Select -First 500 |
-# Redact-Columns -ColumnNames @( 'Subject', 'Description' )  |
+# Redact-Columns -ColumnNames @( 'Subject', 'Description' )  | # Keith wants unmasked data so he can assign to the correct sub-type in new org
 Select-Object Id,
-Client_Name__c,
-# Type, # Email or Blank (Non blank are all Archived
-WhoId, # Id of Contact
+Client_Name__c, # Lookup(Contact)
+# Type, # all blank (Some were 'Email' but they all have IsArchived=1)
+WhoId, # Lookup(Contact or User)
 Subject,
 Description, # long text including some html tags and non-visible bytes - better save directly to accdb, Excel doesn't export the whole text.
 Action__c,  #Non-billable etc
@@ -577,6 +580,7 @@ Status,
 # wbsendit__Smart_Email_Recipient__c,
 # wbsendit__Smart_Email_Status__c,
 WhatCount,
-WhatId,
+WhatId, # Lookup(*anything*)
 WhoCount |
+Update-Properties -PropertyList @( 'Client_Name__c', 'WhoId' ) -HashTable $contact_ids_to_merge |
 Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8  -Path "$unzippedRoot\Task_subset.csv"
