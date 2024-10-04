@@ -1,4 +1,7 @@
-﻿# Create lookup hashtables used as scoping filters
+﻿
+
+
+# Create lookup hashtables used as scoping filters
 
 $contact_in_scope = @{}
 Import-Csv  $Contact_clean_pii_csv |
@@ -64,9 +67,10 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 #--------------------------------------------------------------------
 # CONTACTS
 
-Import-Csv "$unzippedRoot\Contact.csv" -Encoding UTF7 | 
+
+Import-Csv "$unzippedRoot\Contact.csv" -Encoding  | # for Contact ID = "0033b00002T0K03AAF", UTF7 reads [MobilePhone] as "㗓蹴�" whereas UTF8 agrees with UI ("+61410450243") 
 Where-KeyMatch -KeyName Id -LookupTable $contact_in_scope |
-Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
+# Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
 Select-Object Id, # ALL non-trivial columns in scope for migration
 Salutation,FirstName,LastName,Email,MobilePhone,Birthdate,CreatedDate,
 LastActivityDate,Funraisin__Funraisin_Id__c,NDIS_No__c,ONEN_Household__c,RecordTypeId,
