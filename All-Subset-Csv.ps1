@@ -588,3 +588,13 @@ WhatId, # Lookup(*anything*)
 WhoCount |
 Update-Properties -PropertyList @( 'Client_Name__c', 'WhoId' ) -HashTable $contact_ids_to_merge |
 Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8  -Path "$unzippedRoot\Task_subset.csv"
+
+
+#-------------------------------------------------------------------------------
+
+# TASK RELATION
+Import-Csv -Encoding UTF7 -Path "$unzippedRoot\TaskRelation.csv"  | 
+Where-Object LastModifiedDate -gt '2022' |
+Where-KeyMatch -KeyName RelationId -LookupTable $contact_in_scope | 
+Update-Properties -PropertyList @('RelationId') -HashTable $contact_ids_to_merge | 
+Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\TaskRelation_subset.csv"
