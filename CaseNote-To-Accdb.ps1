@@ -1,4 +1,9 @@
 ﻿#---------------------------------------------------------------------------------------------
+<#
+    Update as of 4/10/24: Data Loader can import long text > 32kB but Data Import Wizard truncates regardless.
+    I've asked Keith to try importing a single row including "style-conscious" HTML just to find out whether the fonts & colours are rendered in browser or (b) removed during import (which is what we see so far).
+   
+#>
 
 
 function Trim-Html {
