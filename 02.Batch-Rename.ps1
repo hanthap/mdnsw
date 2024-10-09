@@ -86,54 +86,37 @@ function Rename-Attachment {
     [CmdletBinding()]
     param(
       [Parameter(Mandatory, ValueFromPipeline)] [PSObject] $f,
-      [Parameter(Mandatory)][int]$suffix # store the batch identifier in place of 'seconds' in the file's timestamp
+      [Parameter(Mandatory)][int]$suffix, # store the batch identifier in place of 'seconds' in the file's timestamp
+      [int] $MaximumNoiseLevel = 9
       )
-    # TO DO : begin block: if $map doesn't exist then load it
+    # TO DO : begin block: if $attachment hashtable doesn't exist then load it
 
 process {
     $id =  $f.Name # the unzipped raw file item is named as per its case-safe Attachment.Id (with no extension)
-    $d = $map.$Id # get the metadata
+    $d = $attachment.$Id # get the metadata
     if ( $d ) { # if mapping exists
-        $c = [char]$d.ContactLastName.Substring(0,1) # first letter of surname also determines which doclib subset
-        $subFolder = 'Subset' + $c + '\' + $d.OutCategory + '\' + $c + '\' + $d.ContactFullName + ' #' + $d.ContactID  
-        $subFolder = $subFolder -replace '\?', '''' # replace punctuation characters not allowed in a filepath
-        $utc = [DateTime]::ParseExact($d.CreatedDate,"d/M/yyyy H:mm:ss",$null)
-        $utc = $utc.AddSeconds( $suffix – $utc.Second ) # replace actual seconds with our batch identifier
-        $_.CreationTimeUtc = $utc # this works in local filesystem only, not the SharePoint doclib item, sadly
-        $_.LastWriteTimeUtc = $utc # successfully propagates to "Modified" datestamp when sync'ed to SPO
-        $ts = $utc.ToString("yyyy-MM-dd" ) # not required as we have the separate timestamp attribute
-        # filename ends with the old case-safe Attachment ID, to be paired with the uniqueID added by SharePoint when we upload
-        $base = [System.IO.Path]::GetFileNameWithoutExtension($d.Name)  -replace '\?', '''' # replace punctuation characters not allowed in a filename
-        $ext = [System.IO.Path]::GetExtension($d.Name)
-
-        $fName = $base + ' #' + $id + $ext
-
-        if ( $d.Priority -gt 0 ) {
-            New-Item -ItemType Directory -Force -Path "$outRoot\$subFolder" | Out-Null  # -Force adds intermediate subfolders 
-            $outPath = "$outRoot\$subFolder\$fName"
+        # $d
+        if ( [int]$d.noise_level -gt $MaximumNoiseLevel ) {
+            $out_folder = "$env:OneDrive\$($d.doclib)`\Noise`\$($d.folder)"
         } else {
-            $outPath = "$skipFolder\$fName"
+            $out_folder = "$env:OneDrive\$($d.doclib)`\$($d.folder.substring(0,1))`\$($d.folder)"
             }
-        $outPath
-        $f.MoveTo($outPath)
-    } else {
-        $f.MoveTo( "$skipFolder\$id" ) # some Attachment IDs are not in $map eg due to "unresolved email"
+        $out_path = "$out_folder\" + $d.unique_fname
+        Write-Verbose $out_path
+        $utc = [DateTime] $d.CreatedDate # casting straight from ISO doesn't require ParseExact
+        $utc = $utc.AddSeconds( $suffix – $utc.Second ) # replace actual seconds with our batch identifier
+        $f.LastWriteTimeUtc = $utc # successfully propagates to "Modified" datestamp when sync'ed to SPO
+        New-Item -ItemType Directory -Force -Path $out_folder | Out-Null  # -Force adds intermediate subfolders 
+        $f.MoveTo($out_path)
+        attrib -p +u $out_path # we can unpin it immediately to free up space
+
         }
 } # end process
 
 }
 
+$attachment['00PPr000006AfuUMAS']
 
 
-New-Item -ItemType Directory -Force -Path $skipFolder # in case I've deleted it 
 
-# scan the local folder for any unzipped files that have not already been moved+renamed (or skipped)
-Get-ChildItem -Path "$unzippedRoot\Attachments" -File | 
-    Rename-Attachment
-
-
-attrib -p +u $outRoot\S2\* /s
-
-
-# Once syncing is complete, we will use the SharePoint API to generate an incremental CSV file containing the uniqueID and original SF ID
-# A macro in Access will then upsert its master table using the incremental data
+[int]'3' 

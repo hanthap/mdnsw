@@ -47,6 +47,9 @@ $contact = @{}
 Import-Csv "$unzippedRoot\Contact.csv" |
 # Append ID so as to avoid combining namesakes "SMITH, John"
 Select-Object Id, FirstName, LastName, @{n='folder_name'; e={ $_.LastName.ToUpper()+', '+$TextInfo.ToTitleCase($_.FirstName.ToLower())+' #'+$_.id }} |
+
+
+
 ForEach-Object { $contact[$_.Id] = $_ } 
 $contact.Count # 39564
 
@@ -79,8 +82,10 @@ $task.Count # 52433
 
 $casenote = @{}
 Import-Csv "$unzippedRoot\Case_Note__c.csv" | 
-Select-Object Id, Client_Name__c, Name, 
-@{ n='client'; e={ $contact[$_.Client_Name__c] } } |
+Select-Object Id, Client_Name__c, Name, Carer_Name__c, Case_Worker__c,
+@{ n='client'; e={ $contact[$_.Client_Name__c] } },
+@{ n='carer'; e={ $contact[$_.Carer_Name__c] } },
+@{ n='case_worker'; e={ $contact[$_.Case_Worker__c] } } |
 ForEach-Object { $casenote[$_.Id] = $_ } 
 $casenote.Count # 52027
 
@@ -120,29 +125,37 @@ function coalesce( $a ) {
 
 #------------------------------------------------------------
 
+function clean_path( $s ) {
+    return $s -replace '\?', '''' # replace characters not allowed in the name of a file system object
+}
+
+#------------------------------------------------------------
+
 # Now bring it all together to produce a CSV ready for (re-)loading into a hashtable (stage 2).
 
 Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF7 |
 select *, 
 @{ n='noise_level'; e={ $noise_image[$_.ContentType+', '+$_.BodyLength] } } ,
 @{ n='doclib'; e={ if ( $sd_user[$_.OwnerId] ) { 'Service Delivery' } else { 'Other' } } },
-@{ n='unique_fname'; e={ unique_fname $_.Name $_.Id } }, 
+@{ n='unique_fname'; e={ clean_path ( unique_fname $_.Name $_.Id ) } }, 
 @{ n='out_folder'; e= {
     coalesce @(
         $contact[$_.ParentId].folder_name,
         $casenote[$_.ParentId].client.folder_name,
         $task[$_.ParentId].who.folder_name,
         $task[$_.ParentId].client.folder_name,
+        $casenote[$_.ParentId].carer.folder_name,
+        $casenote[$_.ParentId].case_worker.folder_name,
         $task[$_.ParentId].account.folder_name,
         $account[$_.AccountId].folder_name,
-        ('? ParentId #'+$_.ParentId), # parentheses required
-        ('? AccountId #'+$_.AccountId)
+        ('_ ParentId #'+$_.ParentId), # parentheses required
+        ('_ AccountId #'+$_.AccountId)
          ) } } | 
 select Id, ParentId, AccountId,
     doclib, 
     CreatedDate,
     noise_level, 
-    @{ n='folder'; e={$_.out_folder.name}}, 
+    @{ n='folder'; e={ clean_path $_.out_folder.name }}, 
     @{ n='type'; e={$_.out_folder.type}}, 
     unique_fname | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Attachment-Map.csv"
