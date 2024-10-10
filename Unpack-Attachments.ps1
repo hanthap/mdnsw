@@ -13,7 +13,7 @@ $shell = New-Object -Com Shell.Application
 $unzipped_namespace = $shell.NameSpace( $unzippedRoot )
 
 
-$suffix = 25
+$suffix = 7
 $zip_file_path = "$zipFileStem$suffix.zip"
 $source_namespace = $shell.NameSpace( $zip_file_path )
 

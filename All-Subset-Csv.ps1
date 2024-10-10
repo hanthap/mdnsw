@@ -8,7 +8,7 @@ Import-Csv  $Contact_clean_pii_csv |
 Where-Object Membership__c -ne 'Archive'  | # explicit assumption
 Select-Object Id, FirstName, LastName |
 ForEach-Object { $contact_in_scope[$_.Id] = $_.FirstName + ' ' + $_.LastName }  # TO DO - value could be the post-merge 'primary' Contact Id 
-$contact_in_scope.Count # 36404 => 36417
+$contact_in_scope.Count # 36404 => 36417 => 36427
 
 # Many ONEN_Household records are obviously duplicates.
 # 99% of these are resolved by excluding hholds with no Contacts in scope
@@ -23,11 +23,10 @@ $hhold_in_scope.count # 1313 => 1313
 #--------------------------------------------------------------------
 # ACCOUNTS
 
-Import-Csv "$unzippedRoot\Account.csv" -Encoding UTF7 | # "Bush Rock Café" (Dunno why UTF8 doesn't do the [é] properly)
+Import-Csv "$unzippedRoot\Account.csv" -Encoding UTF8 | # "Bush Rock Café" 
 Where-Object Membership__c -ne 'Archive' |
-Redact-Columns -ColumnNames @( 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  | # Keith asked for Name to be unmasked, 30/9/24
+# Redact-Columns -ColumnNames @( 'BillingStreet', 'ShippingStreet', 'Description', 'Email__c', 'Phone' )  | # Keith asked for Name to be unmasked, 30/9/24
 # Update-Properties -PropertyList @( ) -HashTable $contact_ids_to_merge |
-
 Select-Object Id,
 RecordTypeId,
 Type,
@@ -68,7 +67,7 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 # CONTACTS
 
 
-Import-Csv "$unzippedRoot\Contact.csv" -Encoding  | # for Contact ID = "0033b00002T0K03AAF", UTF7 reads [MobilePhone] as "㗓蹴�" whereas UTF8 agrees with UI ("+61410450243") 
+Import-Csv "$unzippedRoot\Contact.csv" -Encoding UTF8 | # for Contact ID = "0033b00002T0K03AAF", UTF7 reads [MobilePhone] as "㗓蹴�" whereas UTF8 agrees with UI ("+61410450243") 
 Where-KeyMatch -KeyName Id -LookupTable $contact_in_scope |
 # Redact-Columns -ColumnNames @( 'FirstName', 'LastName', 'OtherStreet', 'MailingStreet', 'Description', 'Email', 'MobilePhone', 'Phone', 'Other_Email__c', 'Spouse_Name__c' )  |
 Select-Object Id, # ALL non-trivial columns in scope for migration
@@ -212,7 +211,7 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 #-------------------------------------------------------------------------
 # CAMPAIGN MEMBERS
 
-Import-Csv "$unzippedRoot\CampaignMember.csv" -Encoding UTF7 | 
+Import-Csv "$unzippedRoot\CampaignMember.csv" -Encoding UTF8 | 
 # Easier in PowerQuery : DO NOT MIGRATE Campaign member record type.Name in ( 'Care for Carers', 'Tour Duchenne' )
 # Where-Object Funraisin__Is_Archived__c -ne 'Y' |  
 Where-KeyMatch -KeyName ContactId -LookupTable $contact_in_scope |
@@ -261,10 +260,10 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 
 # CAMPAIGNS
 
-Import-Csv "$unzippedRoot\Campaign.csv" -Encoding UTF7 | 
+Import-Csv "$unzippedRoot\Campaign.csv" -Encoding UTF8 | 
 # Where-Object Funraisin__Is_Archived__c -ne 'Y' |  #TO DO : CRITERIA?
 Where-Object { $_.CampaignMemberRecordTypeId -ne '' -or $_.Id -eq '701800000006lLHAAY' } | # workaround: keep 'General Donations' even though it has no CampaignMemberRecordTypeId (27/9/24)
-Redact-Columns -ColumnNames @( 'Description', 'Name' ) |
+#Redact-Columns -ColumnNames @( 'Description', 'Name' ) |
 Select-Object Id, 
 Name,
 ActualCost,
@@ -408,9 +407,9 @@ Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot
 #-------------------------------------------------------------------------
 # HOUSEHOLDS
 
-Import-Csv "$unzippedRoot\ONEN_Household__c.csv" -Encoding UTF7 |
+Import-Csv "$unzippedRoot\ONEN_Household__c.csv" -Encoding UTF8 |
 Where-KeyMatch -LookupTable $hhold_in_scope | # skip any households that have no current in-scope contacts. (This removes 99% of duplicated households.)
-Redact-Columns -ColumnNames @( 'Name', 'MailingStreet__c', 'Unique_Household__c', 'Recognition_Name_Short__c', 'Recognition_Name__c' ) |
+# Redact-Columns -ColumnNames @( 'Name', 'MailingStreet__c', 'Unique_Household__c', 'Recognition_Name_Short__c', 'Recognition_Name__c' ) |
 # there are no Lookup(Contact) ids to be remapped
 Select-Object *, 
 @{Name='MailingAddress'; Expression={ Clean-Address $_.MailingStreet__c, $_.MailingCity__c, $_.MailingState__c, $_.MailingPostalCode__c, $_.MailingCountry__c } } |
@@ -430,10 +429,10 @@ $ExcludeRecordTypeIdList = @(
 '0123b0000007ygB'  # Membership Registration
 )
 
-Import-Csv "$unzippedRoot\Opportunity.csv" -Encoding UTF7 | 
+Import-Csv "$unzippedRoot\Opportunity.csv" -Encoding UTF8 | 
 Where-Object RecordTypeId -NotIn $ExcludeRecordTypeIdList |
 Where-KeyMatch -KeyName ContactId -LookupTable $contact_in_scope |
-Redact-Columns -ColumnNames @( 'Name', 'Check_Author__c', 'Description' )  |
+# Redact-Columns -ColumnNames @( 'Name', 'Check_Author__c', 'Description' )  |
 Select-Object Id,
 Name,
 ContactId,
@@ -494,10 +493,10 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot
 #-------------------------------------------------------------------------------
 # CASE NOTES
 
-Import-Csv "$unzippedRoot\Case_Note__c.csv"  -Encoding UTF8 | # NOT UTF7!
+Import-Csv "$unzippedRoot\Case_Note__c.csv"  -Encoding UTF8 | 
 Where-Object LastModifiedDate -ge '2022' | # Only migrate case notes from 2022-2024 (Jess, 30/9/24)
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
-Redact-Columns -ColumnNames @( 'Name' ) |  #  Keith asked for Action_c to be unmasked 30/9/24
+# Redact-Columns -ColumnNames @( 'Name' ) |  #  Keith asked for Action_c to be unmasked 30/9/24
 Select-Object Id,
 Name,
 Action__c, # do not mask this
@@ -529,8 +528,8 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot
 #TASKS
 
 # Where-KeyMatch only supports a single KeyName. We use '+' to concatenate 2 filtered resultsets. Therefore need to dedupe later.
-( Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF7 | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope ) + 
-( Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF7 | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName WhoId -LookupTable $contact_in_scope ) |
+( Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF8 | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope ) + 
+( Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF8 | Where-Object IsArchived -ne 1 | Where-KeyMatch -KeyName WhoId -LookupTable $contact_in_scope ) |
 # Redact-Columns -ColumnNames @( 'Subject', 'Description' )  | # Keith wants unmasked data so he can assign to the correct sub-type in new org
 Select-Object Id,
 Client_Name__c, # Lookup(Contact)
@@ -593,7 +592,7 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8  -Path "$unzippedRoo
 #-------------------------------------------------------------------------------
 
 # TASK RELATION
-Import-Csv -Encoding UTF7 -Path "$unzippedRoot\TaskRelation.csv"  | 
+Import-Csv -Encoding UTF8 -Path "$unzippedRoot\TaskRelation.csv"  | 
 Where-Object LastModifiedDate -gt '2022' |
 Where-KeyMatch -KeyName RelationId -LookupTable $contact_in_scope | 
 Update-Properties -PropertyList @('RelationId') -HashTable $contact_ids_to_merge | 

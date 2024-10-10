@@ -32,7 +32,7 @@ for each zip file in folder
 # Identify repeating images and their incidence, so we can choose a cutoff later. Store as a hashtable so we can use it in a left join
 
 $noise_image = @{}
-Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF7 | 
+Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF8 | 
 Where-Object ContentType -Like 'image*' |  #this filter makes the Group run much faster, no idea why.
 Group-Object ContentType, BodyLength -NoElement | 
 Where-Object Count -gt 1 | 
@@ -44,21 +44,18 @@ ForEach-Object { $noise_image[$_.Name] = $_.Count } # add to hashtable
 
 $TextInfo = (Get-Culture).TextInfo # for Title Case
 $contact = @{}
-Import-Csv "$unzippedRoot\Contact.csv" |
+Import-Csv "$unzippedRoot\Contact.csv" -Encoding UTF8 |
 # Append ID so as to avoid combining namesakes "SMITH, John"
 Select-Object Id, FirstName, LastName, @{n='folder_name'; e={ $_.LastName.ToUpper()+', '+$TextInfo.ToTitleCase($_.FirstName.ToLower())+' #'+$_.id }} |
-
-
-
 ForEach-Object { $contact[$_.Id] = $_ } 
-$contact.Count # 39564
+$contact.Count # 39564 => 39567
 
 #------------------------------------------------------------
 
 # Same for Accounts
 
 $account = @{}
-Import-Csv "$unzippedRoot\Account.csv" | 
+Import-Csv "$unzippedRoot\Account.csv" -Encoding UTF8 | 
 Select-Object Id, Name, @{ n='folder_name'; e={ $_.Name.ToUpper()+' #'+$_.Id }} |
 ForEach-Object { $account[$_.Id] = $_ } 
 $account.Count # 4390
@@ -68,26 +65,26 @@ $account.Count # 4390
 # Tasks
 
 $task = @{}
-Import-Csv "$unzippedRoot\Task.csv" | 
+Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF8 | 
 Select-Object Id, WhoId, AccountId,  Client_Name__c, Subject, 
 @{ n='who'; e={ $contact[$_.WhoId] } }, 
 @{ n='client'; e={ $contact[$_.Client_Name__c] } }, 
 @{ n='account'; e={ $account[$_.AccountId] } } |
 ForEach-Object { $task[$_.Id] = $_ } 
-$task.Count # 52433
+$task.Count # 52433 => 52677
 
 #------------------------------------------------------------
 
 # Case Notes
 
 $casenote = @{}
-Import-Csv "$unzippedRoot\Case_Note__c.csv" | 
+Import-Csv "$unzippedRoot\Case_Note__c.csv" -Encoding UTF8 | 
 Select-Object Id, Client_Name__c, Name, Carer_Name__c, Case_Worker__c,
 @{ n='client'; e={ $contact[$_.Client_Name__c] } },
 @{ n='carer'; e={ $contact[$_.Carer_Name__c] } },
 @{ n='case_worker'; e={ $contact[$_.Case_Worker__c] } } |
 ForEach-Object { $casenote[$_.Id] = $_ } 
-$casenote.Count # 52027
+$casenote.Count # 52027 => 52406
 
 #------------------------------------------------------------
 
@@ -133,7 +130,7 @@ function clean_path( $s ) {
 
 # Now bring it all together to produce a CSV ready for (re-)loading into a hashtable (stage 2).
 
-Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF7 |
+Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF8 |
 select *, 
 @{ n='noise_level'; e={ $noise_image[$_.ContentType+', '+$_.BodyLength] } } ,
 @{ n='doclib'; e={ if ( $sd_user[$_.OwnerId] ) { 'Service Delivery' } else { 'Other' } } },

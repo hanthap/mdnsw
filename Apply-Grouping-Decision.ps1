@@ -57,6 +57,7 @@ process {
 }
 
 #--------------------------------------------------------------------------------------------------------------
+<# SUPERSEDED
 
 Import-Csv "$unzippedRoot\Opportunity.csv" | 
 Update-Properties -PropertyList @( 'npsp__Primary_Contact__c', 'Contact__c', 'ContactId', 'Fundraiser_Name__c' ) -HashTable $contact_ids_to_merge |
@@ -101,3 +102,4 @@ Where-KeyMatch -KeyName Id -NotInTable $contact_ids_to_merge | select -fist 3
 
 
 
+*>
