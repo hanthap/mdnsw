@@ -60,14 +60,25 @@ Select-Object Id, Name, @{ n='folder_name'; e={ $_.Name.ToUpper()+' #'+$_.Id }} 
 ForEach-Object { $account[$_.Id] = $_ } 
 $account.Count # 4390
 
+
+#------------------------------------------------------------
+# Some tasks only have a What and no Who. Of these, at least some have WhatId that points to a Campaign Id.
+
+$campaign = @{}
+Import-Csv "$unzippedRoot\Campaign.csv" -Encoding UTF8 | 
+Select-Object Id, Name, @{ n='folder_name'; e={ $_.Name +' #'+$_.Id }} |
+ForEach-Object { $campaign[$_.Id] = $_ } 
+$campaign.Count #  7771
+
 #------------------------------------------------------------
 
 # Tasks
 
 $task = @{}
 Import-Csv "$unzippedRoot\Task.csv" -Encoding UTF8 | 
-Select-Object Id, WhoId, AccountId,  Client_Name__c, Subject, 
+Select-Object Id, WhoId, WhatId, AccountId, Client_Name__c, Subject, 
 @{ n='who'; e={ $contact[$_.WhoId] } }, 
+@{ n='what'; e={ $campaign[$_.WhatId] } }, 
 @{ n='client'; e={ $contact[$_.Client_Name__c] } }, 
 @{ n='account'; e={ $account[$_.AccountId] } } |
 ForEach-Object { $task[$_.Id] = $_ } 
@@ -86,6 +97,7 @@ Select-Object Id, Client_Name__c, Name, Carer_Name__c, Case_Worker__c,
 ForEach-Object { $casenote[$_.Id] = $_ } 
 $casenote.Count # 52027 => 52406
 
+
 #------------------------------------------------------------
 
 # The target document library in SharePoint depends on whether the attachment Owner is (or was) in the 'Service Delivery' team
@@ -95,12 +107,18 @@ Import-Excel "$env:OneDrive\Documents\Salesforce User ID.xlsx" |  # master file 
 Where-Object Role -eq 'Service Delivery' |
 Group-Object Id -AsHashTable
 
+# for documents, we will use owner's email address as a folder name
+$any_user = 
+Import-Csv "$unzippedRoot\User.csv" -Encoding UTF8 | 
+Group-Object Id -AsHashTable
+$any_user.Count # 146
 #------------------------------------------------------------
 
 # To ensure each filename is unique, we insert #[AttachmentId] just before the file extension
 
 function unique_fname( $fn, $id ) {
-    $s = [System.IO.Path]::GetFileNameWithoutExtension($fn) 
+    $s = [System.IO.Path]::GetFileNameWithoutExtension($fn)
+    $s = $s.subString(0, [System.Math]::Min(80, $s.Length))   # MoveTo: The fully qualified file name must be less than 260 characters, and the directory name must be less than 248 characters."
     $x = [System.IO.Path]::GetExtension($fn)
    return ($s + ' #' + $id + $x )
 }
@@ -123,7 +141,7 @@ function coalesce( $a ) {
 #------------------------------------------------------------
 
 function clean_path( $s ) {
-    return $s -replace '\?', '''' # replace characters not allowed in the name of a file system object
+    return $s -replace '[:\?]', '' # replace characters not allowed in the name of a file system object
 }
 
 #------------------------------------------------------------
@@ -145,8 +163,11 @@ select *,
         $casenote[$_.ParentId].case_worker.folder_name,
         $task[$_.ParentId].account.folder_name,
         $account[$_.AccountId].folder_name,
+        $task[$_.ParentId].subject, 
+        # now for the really persistent orphans
         ('_ ParentId #'+$_.ParentId), # parentheses required
         ('_ AccountId #'+$_.AccountId)
+
          ) } } | 
 select Id, ParentId, AccountId,
     doclib, 
@@ -170,3 +191,20 @@ $attachment['00PPr0000057BS5MAM']
 
 
 #>
+
+
+Import-Csv "$unzippedRoot\Document.csv" -Encoding UTF8 | 
+select *, 
+@{ n='doclib'; e={ if ( $sd_user[$_.AuthorId] ) { 'Service Delivery' } else { 'Other' } } },
+#@{ n='unique_fname'; e={ clean_path ( unique_fname ( $_.Name + '.' + $_.Type ) $_.Id ) } }, 
+@{ n='unique_fname'; e={ clean_path ( unique_fname $_.Name $_.Id ) } }, 
+@{ n='author_email'; e= { $any_user[$_.AuthorId].email } }, 
+@{ n='out_folder'; e= { "$($any_user[$_.AuthorId].email)`\#$($_.FolderId)" } } | 
+select Id, FolderId, author_email,
+    doclib, 
+    CreatedDate,
+    @{ n='folder'; e={ clean_path $_.out_folder }}, 
+    unique_fname | 
+Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv"
+
+Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 100

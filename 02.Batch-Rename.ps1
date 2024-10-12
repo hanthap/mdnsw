@@ -1,21 +1,15 @@
 ﻿<#
 
-Pre-upload - AFTER generating master lookup qryAttachmentScope.csv
-
-Given a complete set of 34 archive zip files (manually downloaded from Salesforce) pick one and unzip its contents 
-(If resources are scarce you can break it into smaller batches)
-Apply Vertic's file naming standards to the unzipped files, ready for uploading to the SharePoint doclib
-Names etc are determined using output from Access stage 1
-#>
-
-# SPO Staging folder will contain at least 34 .zip files 
-
+# SPO Staging folder will contain at least 35 .zip files 
 
 # How to trigger Weekly Data Export: 
 # https://help.salesforce.com/s/articleView?id=sf.admin_exportdata.htm&type=5
 
 # https://mdnsw.lightning.force.com/lightning/setup/DataManagementExport/home
 
+#>
+
+<# NO LONGER IN USE
 
 # subset of files to be unzipped
 
@@ -50,6 +44,7 @@ attrib -p +u $ZipPath /s
 
 
 Expand-Archive -Suffix 29 -Pin -Verbose  #29 done, next is 28
+#>
 
 
 function Rename-Attachment { 
@@ -97,7 +92,7 @@ process {
     if ( $d ) { # if mapping exists
         # $d
         if ( [int]$d.noise_level -gt $MaximumNoiseLevel ) {
-            $out_folder = "$env:OneDrive\$($d.doclib)`\Noise`\$($d.folder)"
+            $out_folder = "$env:OneDrive\$($d.doclib)`\_NOISE_`\$($d.folder)"
         } else {
             $out_folder = "$env:OneDrive\$($d.doclib)`\$($d.folder.substring(0,1))`\$($d.folder)"
             }
@@ -115,8 +110,31 @@ process {
 
 }
 
-$attachment['00PPr000006AfuUMAS']
+#-----
+# Documents use a different logic for file path
 
+function Rename-Document { 
 
+    [CmdletBinding()]
+    param(
+      [Parameter(Mandatory, ValueFromPipeline)] [PSObject] $f,
+      [Parameter(Mandatory)][int]$suffix # store the batch identifier in place of 'seconds' in the file's timestamp
+      )
 
-[int]'3' 
+process {
+    $id =  $f.Name # the unzipped raw file item is named as per its case-safe Document.Id (with no extension)
+    $d = $document.$Id # get the metadata
+    if ( $d ) { # if mapping exists
+        $out_folder = "$env:OneDrive\$($d.doclib)`\_DOC_`\$($d.folder)"
+        $out_path = "$out_folder\" + $d.unique_fname
+        Write-Verbose $out_path
+        $utc = [DateTime] $d.CreatedDate 
+        $utc = $utc.AddSeconds( $suffix – $utc.Second ) # replace actual seconds with our batch identifier
+        $f.LastWriteTimeUtc = $utc 
+        New-Item -ItemType Directory -Force -Path $out_folder | Out-Null 
+        $f.MoveTo($out_path)
+        attrib -p +u $out_path
+        }
+} # end process
+
+}
