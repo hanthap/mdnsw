@@ -216,7 +216,7 @@ select *,
 @{ n='doclib'; e={ if ( $sd_user[$_.AuthorId] ) { 'Service Delivery' } else { 'Other' } } },
 @{ n='unique_fname'; e={ clean_path ( unique_fname $_.Name $_.Id ) } }, 
 @{ n='author_email'; e= { $any_user[$_.AuthorId].email } }, 
-@{ n='out_folder'; e= { "$($any_user[$_.AuthorId].email)`\Folder #$($_.FolderId)" } } | 
+@{ n='out_folder'; e= { "Document`\$($any_user[$_.AuthorId].email)`\Folder #$($_.FolderId)" } } | 
 select Id, FolderId, author_email,
     doclib, 
     CreatedDate,
@@ -224,4 +224,5 @@ select Id, FolderId, author_email,
     unique_fname | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv"
 
-# Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 100
+# 
+Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 100

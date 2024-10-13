@@ -11,15 +11,17 @@ ForEach-Object { $document[$_.Id] = $_ }
 
 
 
-$attachment['00P3b00001T2gpIEAR']
+$attachment['00P3b00001T3bu4EAB']
 
+
+$attachment.'00P3b00001T3BiZEAV'
 #--------------------------------------------------------------------------------------------
 
 $shell = New-Object -Com Shell.Application
 $unzipped_namespace = $shell.NameSpace( $unzippedRoot )
 
-
-$suffix = 1
+# #5 is the first to include Attachments. 
+$suffix = 6
 $zip_file_path = "$zipFileStem$suffix.zip"
 $source_namespace = $shell.NameSpace( $zip_file_path )
 
