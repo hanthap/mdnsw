@@ -21,7 +21,7 @@ $shell = New-Object -Com Shell.Application
 $unzipped_namespace = $shell.NameSpace( $unzippedRoot )
 
 # #5 is the first to include Attachments. 
-$suffix = 6
+$suffix = 8
 $zip_file_path = "$zipFileStem$suffix.zip"
 $source_namespace = $shell.NameSpace( $zip_file_path )
 

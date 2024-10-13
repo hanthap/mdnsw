@@ -2,12 +2,14 @@
 
 PRECONDITIONS
 
-In workbench run this SOQL query: 
+Wait for notification that maica__Client_Note__c has been (re-)populated (so that new Ids are available)
 
-SELECT Id,Legacy_Case_Note_ID__c FROM maica__Client_Note__c
+Login to workbench (new org) and run this SOQL query: 
 
-Then download result as csv
-Rename csv as maica__Client_Note__c_map.csv
+    SELECT Id,Legacy_Case_Note_ID__c FROM maica__Client_Note__c
+
+Then download the results as csv
+Rename fresh csv file as "maica__Client_Note__c_map.csv"
 
 #>
 
@@ -22,10 +24,7 @@ $maica__Client_Note__c_map.Count # 46789
 
 #---------------------------------------------------------------------------------------------
 <#
-    Update as of 4/10/24: Data Loader can import long text > 32kB but Data Import Wizard truncates regardless.  Keith says that's not a problem with Data Loader.
-    I've asked Keith to try importing a single row including "style-conscious" HTML just to find out whether the fonts & colours are rendered in browser or (b) removed during import (which is what we see so far).
-    10/10/24 Harry says limit has been increased to 131072 bytes
-   
+    We can bypass Access accdb and export a csv directly from PowerShell, for updating via Data Loader. 
 #>
 
 
@@ -38,7 +37,8 @@ function Trim-Html {
       $MaxLength =  131072 , # increased from 32768
       [string] $ReplaceWithText = '<H3 style="color: red">[Embedded image removed due to 131 kB character limit]</H3>',
       [string] $TruncatedWarning = '<H3 style="color: red">[End of text not included due to 131 kB character limit]</H3>',
-      [System.Text.RegularExpressions.RegexOptions] $RegexOptions = ([System.Text.RegularExpressions.RegexOptions]::RightToLeft)
+      [System.Text.RegularExpressions.RegexOptions] $RegexOptions = ([System.Text.RegularExpressions.RegexOptions]::RightToLeft),
+      [switch] $ToPlainText = $false
       )
 
 begin {
@@ -64,6 +64,12 @@ process {
                 $s = $rxFooter.Replace( $s, '' ) 
                 $s = $rxRubbish.Replace( $s, '' ) 
 
+                if ( $ToPlainText ) {
+                    $s = $s -replace '<br>', "`n" # we want to preserve linefeeds
+                    $s = $s -replace '<[^>]*>', '' # remove all element tags
+                    $s = [System.Web.HttpUtility]::HtmlDecode($s) # replace &amp; &gt; etc.
+                    }
+    
                 #  insert warning message in place of the last (up to N remaining) images
                 for ( $i=0; $i -lt 10 -and $s.Length -gt $MaxLength; $i++ ) {
                     #remove all footer images 
@@ -145,15 +151,18 @@ Append-Accdb -Path "$unzippedRoot\Case_Note__c.accdb"
 Import-Csv "$unzippedRoot\Case_Note__c.csv" -Encoding UTF8 | 
 Where-Object LastModifiedDate -ge '2022' | 
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
-Select-Object -First 1000 *,
+Select-Object *,
     @{ n='Legacy_Case_Note_ID__c'; e={ $_.Id } }, 
     @{ n='maica__Client_Note__c.Id'; e={ $maica__Client_Note__c_map[$_.Id] } } |
-Trim-Html -PropertyList @( 'Notes__c', 'Action_Detail__c' ) |
 ForEach-Object { # keep multi-picklist values just for posterity
     if ( $_.Action_Detail__c -gt '' ) { $_.Action__c += '<br>' }
-    $_.Action_Detail__c = "Original type: $($_.Action__c)", $_.Action_Detail__c | Out-String
+    $_.Action_Detail__c = " Original type: $($_.Action__c)", $_.Action_Detail__c | Out-String
     $_
     } |
+Trim-Html -PropertyList @( 'Notes__c' ) -MaxLength 131072 |
+Trim-Html -PropertyList @( 'Action_Detail__c' ) -MaxLength 32768 -ToPlainText | # TO DO :  get someone to enable HTML in new org field (and increase character limit)
 select maica__Client_Note__c.Id, Legacy_Case_Note_ID__c, Notes__c, Action_Detail__c |
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\maica__Client_Note__c_RTF.csv"
+
+# Import-Csv -Encoding UTF8 -Path "$unzippedRoot\maica__Client_Note__c_RTF.csv" | where 'maica__Client_Note__c.Id' -ne '' |  select -first 10 'maica__Client_Note__c.Id', Action_Detail__c | fl
 
