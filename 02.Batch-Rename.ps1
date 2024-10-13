@@ -92,9 +92,9 @@ process {
     if ( $d ) { # if mapping exists
         # $d
         if ( [int]$d.noise_level -gt $MaximumNoiseLevel ) {
-            $out_folder = "$env:OneDrive\$($d.doclib)`\_NOISE_`\$($d.folder)"
+            $out_folder = "$env:OneDrive\$($d.doclib)`\_NOISE_`\$($d.type)`\$($d.folder)"
         } else {
-            $out_folder = "$env:OneDrive\$($d.doclib)`\$($d.folder.substring(0,1))`\$($d.folder)"
+            $out_folder = "$env:OneDrive\$($d.doclib)`\$($d.type)`\$($d.folder)"
             }
         $out_path = "$out_folder\" + $d.unique_fname
         Write-Verbose $out_path
@@ -125,7 +125,7 @@ process {
     $id =  $f.Name # the unzipped raw file item is named as per its case-safe Document.Id (with no extension)
     $d = $document.$Id # get the metadata
     if ( $d ) { # if mapping exists
-        $out_folder = "$env:OneDrive\$($d.doclib)`\_DOC_`\$($d.folder)"
+        $out_folder = "$env:OneDrive\$($d.doclib)`\$($d.folder)"
         $out_path = "$out_folder\" + $d.unique_fname
         Write-Verbose $out_path
         $utc = [DateTime] $d.CreatedDate 

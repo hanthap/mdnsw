@@ -46,9 +46,15 @@ $TextInfo = (Get-Culture).TextInfo # for Title Case
 $contact = @{}
 Import-Csv "$unzippedRoot\Contact.csv" -Encoding UTF8 |
 # Append ID so as to avoid combining namesakes "SMITH, John"
-Select-Object Id, FirstName, LastName, @{n='folder_name'; e={ $_.LastName.ToUpper()+', '+$TextInfo.ToTitleCase($_.FirstName.ToLower())+' #'+$_.id }} |
+Select-Object Id, FirstName, LastName, 
+@{n='folder_name'; e={ 
+    $s = $_.LastName.ToUpper()+', '+$TextInfo.ToTitleCase($_.FirstName.ToLower())+' #'+$_.id 
+    $s[0] + '\' + $s
+    }} |
 ForEach-Object { $contact[$_.Id] = $_ } 
 $contact.Count # 39564 => 39567
+
+$contact.'0033b00002UVlGBAA1'
 
 #------------------------------------------------------------
 
@@ -144,6 +150,19 @@ function clean_path( $s ) {
     return $s -replace '[:\?]', '' # replace characters not allowed in the name of a file system object
 }
 
+
+#------------------------------------------------------------
+
+function type_name( $i ) {
+    switch ( $i ) {
+        8 { return 'Account' }
+        9 { return 'Task' }
+        10 { return 'Unresolved' }
+        default { return 'Contact' }
+        }
+}
+
+
 #------------------------------------------------------------
 
 # Now bring it all together to produce a CSV ready for (re-)loading into a hashtable (stage 2).
@@ -167,14 +186,13 @@ select *,
         # now for the really persistent orphans
         ('_ ParentId #'+$_.ParentId), # parentheses required
         ('_ AccountId #'+$_.AccountId)
-
          ) } } | 
 select Id, ParentId, AccountId,
     doclib, 
     CreatedDate,
     noise_level, 
     @{ n='folder'; e={ clean_path $_.out_folder.name }}, 
-    @{ n='type'; e={$_.out_folder.type}}, 
+    @{ n='type'; e={ type_name $_.out_folder.type }},  
     unique_fname | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Attachment-Map.csv"
 
@@ -196,10 +214,9 @@ $attachment['00PPr0000057BS5MAM']
 Import-Csv "$unzippedRoot\Document.csv" -Encoding UTF8 | 
 select *, 
 @{ n='doclib'; e={ if ( $sd_user[$_.AuthorId] ) { 'Service Delivery' } else { 'Other' } } },
-#@{ n='unique_fname'; e={ clean_path ( unique_fname ( $_.Name + '.' + $_.Type ) $_.Id ) } }, 
 @{ n='unique_fname'; e={ clean_path ( unique_fname $_.Name $_.Id ) } }, 
 @{ n='author_email'; e= { $any_user[$_.AuthorId].email } }, 
-@{ n='out_folder'; e= { "$($any_user[$_.AuthorId].email)`\#$($_.FolderId)" } } | 
+@{ n='out_folder'; e= { "$($any_user[$_.AuthorId].email)`\Folder #$($_.FolderId)" } } | 
 select Id, FolderId, author_email,
     doclib, 
     CreatedDate,
@@ -207,4 +224,4 @@ select Id, FolderId, author_email,
     unique_fname | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv"
 
-Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 100
+# Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 100
