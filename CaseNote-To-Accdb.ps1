@@ -18,7 +18,7 @@ $maica__Client_Note__c_map = @{}
 Import-Csv "$unzippedRoot\maica__Client_Note__c_map.csv" | where Legacy_Case_Note_ID__c -gt '' | 
 ForEach-Object { $maica__Client_Note__c_map[$_.Legacy_Case_Note_ID__c] = $_.Id }
 
-$maica__Client_Note__c_map.Count # 46789
+$maica__Client_Note__c_map.Count # 46789 => 15455
 
 
 
@@ -148,6 +148,10 @@ Append-Accdb -Path "$unzippedRoot\Case_Note__c.accdb"
 
 # Instead we send Vertic a pre-mapped "update" csv dataset ready for SF Data Loader
 
+# PRECONDITIONS
+$contact_in_scope.count # 36427
+$maica__Client_Note__c_map.count # 15455
+
 Import-Csv "$unzippedRoot\Case_Note__c.csv" -Encoding UTF8 | 
 Where-Object LastModifiedDate -ge '2022' | 
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
@@ -159,10 +163,10 @@ ForEach-Object { # keep multi-picklist values just for posterity
     $_.Action_Detail__c = " Original type: $($_.Action__c)", $_.Action_Detail__c | Out-String
     $_
     } |
-Trim-Html -PropertyList @( 'Notes__c' ) -MaxLength 131072 |
-Trim-Html -PropertyList @( 'Action_Detail__c' ) -MaxLength 32768 -ToPlainText | # TO DO :  get someone to enable HTML in new org field (and increase character limit)
-select maica__Client_Note__c.Id, Legacy_Case_Note_ID__c, Notes__c, Action_Detail__c |
+Trim-Html -PropertyList @( 'Notes__c', 'Action_Detail__c' ) |
+# Trim-Html -PropertyList @( 'Action_Detail__c' ) -MaxLength 32768 -ToPlainText | # Keith has enabled HTML & increased the character limit 15/10/24
+select maica__Client_Note__c.Id, Notes__c, Action_Detail__c |
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\maica__Client_Note__c_RTF.csv"
 
-# Import-Csv -Encoding UTF8 -Path "$unzippedRoot\maica__Client_Note__c_RTF.csv" | where 'maica__Client_Note__c.Id' -ne '' |  select -first 10 'maica__Client_Note__c.Id', Action_Detail__c | fl
+# Import-Csv -Encoding UTF8 -Path "$unzippedRoot\maica__Client_Note__c_RTF.csv" | where { $_.Action_Detail__c.length -gt 200 } |  select -first 10 | fl 'maica__Client_Note__c.Id', Action_Detail__c | fl
 

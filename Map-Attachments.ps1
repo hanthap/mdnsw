@@ -68,7 +68,7 @@ $account.Count # 4390
 
 
 #------------------------------------------------------------
-# Some tasks only have a What and no Who. Of these, at least some have WhatId that points to a Campaign Id.
+# Some tasks only have a What and no Who. Of these, only some have a WhatId that points to a Campaign Id.
 
 $campaign = @{}
 Import-Csv "$unzippedRoot\Campaign.csv" -Encoding UTF8 | 
@@ -112,6 +112,7 @@ $sd_user =
 Import-Excel "$env:OneDrive\Documents\Salesforce User ID.xlsx" |  # master file from Gracia (emailed 2024-06-19)
 Where-Object Role -eq 'Service Delivery' |
 Group-Object Id -AsHashTable
+$sd_user.count # 25
 
 # for documents, we will use owner's email address as a folder name
 $any_user = 
@@ -124,7 +125,6 @@ $any_user.Count # 146
 
 function unique_fname( $fn, $id ) {
     $s = [System.IO.Path]::GetFileNameWithoutExtension($fn)
-    $s = $s.subString(0, [System.Math]::Min(80, $s.Length))   # MoveTo: The fully qualified file name must be less than 260 characters, and the directory name must be less than 248 characters."
     $x = [System.IO.Path]::GetExtension($fn)
    return ($s + ' #' + $id + $x )
 }
@@ -147,9 +147,11 @@ function coalesce( $a ) {
 #------------------------------------------------------------
 
 function clean_path( $s ) {
-    return $s -replace '[:\?]', '' # replace characters not allowed in the name of a file system object
+    $s = $s -replace '[:\?]', '' # replace characters not allowed in the name of a file system object
+    # truncate to first 80 characters just so the full path is less than file system limit of 260 characters
+    $s = $s.subString(0, [System.Math]::Min(80, $s.Length)) 
+    return $s.Trim()
 }
-
 
 #------------------------------------------------------------
 
@@ -162,7 +164,6 @@ function type_name( $i ) {
         }
 }
 
-
 #------------------------------------------------------------
 
 # Now bring it all together to produce a CSV ready for (re-)loading into a hashtable (stage 2).
@@ -171,7 +172,7 @@ Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF8 |
 select *, 
 @{ n='noise_level'; e={ $noise_image[$_.ContentType+', '+$_.BodyLength] } } ,
 @{ n='doclib'; e={ if ( $sd_user[$_.OwnerId] ) { 'Service Delivery' } else { 'Other' } } },
-@{ n='unique_fname'; e={ clean_path ( unique_fname $_.Name $_.Id ) } }, 
+@{ n='unique_fname'; e={ unique_fname ( clean_path $_.Name ) $_.Id } }, # shorten BEFORE adding unique ID suffix
 @{ n='out_folder'; e= {
     coalesce @(
         $contact[$_.ParentId].folder_name,
@@ -191,7 +192,7 @@ select Id, ParentId, AccountId,
     doclib, 
     CreatedDate,
     noise_level, 
-    @{ n='folder'; e={ clean_path $_.out_folder.name }}, 
+    @{ n='folder'; e={ clean_path $_.out_folder.name }}, # some folders are named after Task.Subject, which can be way too long
     @{ n='type'; e={ type_name $_.out_folder.type }},  
     unique_fname | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Attachment-Map.csv"
@@ -214,7 +215,7 @@ $attachment['00PPr0000057BS5MAM']
 Import-Csv "$unzippedRoot\Document.csv" -Encoding UTF8 | 
 select *, 
 @{ n='doclib'; e={ if ( $sd_user[$_.AuthorId] ) { 'Service Delivery' } else { 'Other' } } },
-@{ n='unique_fname'; e={ clean_path ( unique_fname $_.Name $_.Id ) } }, 
+@{ n='unique_fname'; e={ unique_fname ( clean_path $_.Name ) $_.Id } }, # shorten BEFORE adding unique ID suffix
 @{ n='author_email'; e= { $any_user[$_.AuthorId].email } }, 
 @{ n='out_folder'; e= { "Document`\$($any_user[$_.AuthorId].email)`\Folder #$($_.FolderId)" } } | 
 select Id, FolderId, author_email,
@@ -225,4 +226,4 @@ select Id, FolderId, author_email,
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv"
 
 # 
-Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 100
+Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 10

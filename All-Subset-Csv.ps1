@@ -74,6 +74,7 @@ Select-Object Id, # ALL non-trivial columns in scope for migration
 Salutation,FirstName,LastName,Email,MobilePhone,Birthdate,CreatedDate,
 LastActivityDate,Funraisin__Funraisin_Id__c,NDIS_No__c,ONEN_Household__c,RecordTypeId,
 MDANSW_ID__c,
+New_MDANSW_ID__c, # added 15/10/24
 # MailingCity,MailingCountry,MailingPostalCode,MailingState,MailingStreet,
 Aboriginal__c,
 AccountId,
