@@ -21,7 +21,7 @@ $shell = New-Object -Com Shell.Application
 $unzipped_namespace = $shell.NameSpace( $unzippedRoot )
 
 # #5 is the first to include Attachments. 
-$suffix = 19
+$suffix = 14
 $zip_file_path = "$zipFileStem$suffix.zip"
 $source_namespace = $shell.NameSpace( $zip_file_path )
 
@@ -36,11 +36,16 @@ attrib -p +u $zip_file_path # immediately un-pin the zip file to free up disk sp
 
 # scan the local Attachments folder for any newly unzipped files (those not already moved/renamed)
 Get-ChildItem -Path "$unzippedRoot\Attachments" -File | 
-    Rename-Attachment -suffix $suffix -Verbose 
+    Rename-Attachment -suffix $suffix -Verbose |
+    Export-Csv "$unzippedRoot\rename_a_$suffix.csv" -NoTypeInformation
 
 # Ditto for Documents
 Get-ChildItem -Path "$unzippedRoot\Documents" -File | 
-    Rename-Document -suffix $suffix -Verbose 
+    Rename-Document -suffix $suffix -Verbose |
+    Export-Csv "$unzippedRoot\rename_d_$suffix.csv" -NoTypeInformation
 
 Write-Host "Completed extraction from archive: $zip_file_path"
 
+# summary stats
+Import-Csv "$unzippedRoot\rename_a_$suffix.csv" | 
+    group doclib,type -NoElement

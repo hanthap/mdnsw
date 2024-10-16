@@ -87,6 +87,7 @@ function Rename-Attachment {
     # TO DO : begin block: if $attachment hashtable doesn't exist then load it
 
 process {
+    $err = $null
     $id =  $f.Name # the unzipped raw file item is named as per its case-safe Attachment.Id (with no extension)
     $d = $attachment.$Id # get the metadata
     if ( $d ) { # if mapping exists
@@ -101,13 +102,14 @@ process {
         $utc = [DateTime] $d.CreatedDate # casting straight from ISO doesn't require ParseExact
         $utc = $utc.AddSeconds( $suffix – $utc.Second ) # replace actual seconds with our batch identifier
         $f.LastWriteTimeUtc = $utc # successfully propagates to "Modified" datestamp when sync'ed to SPO
-        New-Item -ItemType Directory -Force -Path $out_folder | Out-Null  # -Force adds intermediate subfolders 
-        $f.MoveTo($out_path)
-        attrib -p +u $out_path # we can unpin it immediately to free up space
-
+        try { 
+            New-Item -ItemType Directory -Force -Path $out_folder | Out-Null  # -Force adds intermediate subfolders 
+            $f.MoveTo($out_path)
+            attrib -p +u $out_path # we can unpin it immediately to free up space
+            } catch { $err = $_ } 
         }
-} # end process
-
+        [pscustomobject]@{ suffix=$suffix; fname=$id; length=$f.length; dest=$d; ts=Get-Date; err=$err } | select * -ExpandProperty dest -ExcludeProperty dest
+    } # end process
 }
 
 #-----
@@ -122,6 +124,7 @@ function Rename-Document {
       )
 
 process {
+    $err = $null
     $id =  $f.Name # the unzipped raw file item is named as per its case-safe Document.Id (with no extension)
     $d = $document.$Id # get the metadata
     if ( $d ) { # if mapping exists
@@ -131,10 +134,13 @@ process {
         $utc = [DateTime] $d.CreatedDate 
         $utc = $utc.AddSeconds( $suffix – $utc.Second ) # replace actual seconds with our batch identifier
         $f.LastWriteTimeUtc = $utc 
-        New-Item -ItemType Directory -Force -Path $out_folder | Out-Null 
-        $f.MoveTo($out_path)
-        attrib -p +u $out_path
+        try { 
+            New-Item -ItemType Directory -Force -Path $out_folder | Out-Null  # -Force adds intermediate subfolders 
+            $f.MoveTo($out_path)
+            attrib -p +u $out_path # we can unpin it immediately to free up space
+            } catch { $err = $_ } 
         }
+        [pscustomobject]@{ suffix=$suffix; fname=$id; length=$f.length; dest=$d; ts=Get-Date; err=$err } | select * -ExpandProperty dest -ExcludeProperty dest
 } # end process
 
 }

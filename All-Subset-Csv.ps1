@@ -254,7 +254,7 @@ wbsendit__Opens__c,
 # 27/9/24 MH requested add next 2:
 Number_Attending__c, 
 How_did_you_hear_about_this_challenge__c |
-Update-Properties -PropertyList @( 'ContactId' ) -HashTable $contact_ids_to_merge |
+Update-Properties -PropertyList @( 'ContactId' ) -HashTable $contact_ids_to_merge | # causes some duplicated {Contact,Campaign} keys, which are removed in PowerQuery
 Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\CampaignMember_subset.csv"
 
 #-------------------------------------------------------------------------
