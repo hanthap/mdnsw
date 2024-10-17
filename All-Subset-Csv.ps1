@@ -8,7 +8,7 @@ Import-Csv  $Contact_clean_pii_csv |
 Where-Object Membership__c -ne 'Archive'  | # explicit assumption
 Select-Object Id, FirstName, LastName |
 ForEach-Object { $contact_in_scope[$_.Id] = $_.FirstName + ' ' + $_.LastName }  # TO DO - value could be the post-merge 'primary' Contact Id 
-$contact_in_scope.Count # 36404 => 36417 => 36427
+$contact_in_scope.Count # 36404 => 36417 => 36427 => 36432
 
 # Many ONEN_Household records are obviously duplicates.
 # 99% of these are resolved by excluding hholds with no Contacts in scope
@@ -17,7 +17,7 @@ $hhold_in_scope = Import-Csv  $Contact_clean_pii_csv |
 Where-Object Membership__c -ne 'Archive'  | # explicit assumption
 Select-Object ONEN_Household__c |
 Group-Object ONEN_Household__c -AsHashTable
-$hhold_in_scope.count # 1313 => 1313
+$hhold_in_scope.count # 1313 => 1313 => 1313
 
 
 #--------------------------------------------------------------------
@@ -57,6 +57,9 @@ OwnerId,
 Phone,
 Total_Donations__c,
 Website, 
+# requested 17/10/24
+LastModifiedDate,
+LastModifiedById, 
 # BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, 
 # ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry,
 @{Name='BillingAddress'; Expression={ Clean-Address $_.BillingStreet, $_.BillingCity, $_.BillingState, $_.BillingPostalCode, $_.BillingCountry } }, 
@@ -128,8 +131,8 @@ Interested_in_receiving_information_abou__c,
 Interests__c,
 #IsDeleted,
 Languages__c,
-# LastModifiedById,
-# LastModifiedDate,
+LastModifiedById,
+LastModifiedDate,
 LeadSource,
 MD_Type_Comment__c,
 MD_Type__c,
@@ -367,8 +370,8 @@ HierarchyNumberSent,
 IsActive,
 #IsDeleted
 #LastActivityDate
-#LastModifiedById
-#LastModifiedDate
+LastModifiedById,
+LastModifiedDate,
 Membership_Donation_Email_Template__c,
 # Membership_renewal_template__c,
 New_Member_template__c,
@@ -468,6 +471,8 @@ IsClosed,
 IsWon,
 LastActivityDate,
 LastStageChangeDate,
+LastModifiedDate,
+LastModifiedById, 
 LeadSource,
 OwnerId,
 Payment_ID__c,
@@ -591,10 +596,11 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8  -Path "$unzippedRoo
 
 
 #-------------------------------------------------------------------------------
-
+<#
 # TASK RELATION
 Import-Csv -Encoding UTF8 -Path "$unzippedRoot\TaskRelation.csv"  | 
 Where-Object LastModifiedDate -gt '2022' |
 Where-KeyMatch -KeyName RelationId -LookupTable $contact_in_scope | 
 Update-Properties -PropertyList @('RelationId') -HashTable $contact_ids_to_merge | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\TaskRelation_subset.csv"
+#>
