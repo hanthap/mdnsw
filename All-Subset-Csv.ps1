@@ -124,6 +124,7 @@ HasOptedOutOfFax,
 Head_Of_Household__c,
 Health__c,
 HomePhone,
+OtherPhone, # added 17/10/24 
 Household_Member_Deceased__c,
 Household_Member_has_MD__c,
 How_did_you_hear_about_us__c,

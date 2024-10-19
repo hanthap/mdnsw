@@ -108,7 +108,7 @@ process {
             attrib -p +u $out_path # we can unpin it immediately to free up space
             } catch { $err = $_ } 
         }
-        [pscustomobject]@{ suffix=$suffix; fname=$id; length=$f.length; dest=$d; ts=Get-Date; err=$err } | select * -ExpandProperty dest -ExcludeProperty dest
+    [pscustomobject]@{ suffix=$suffix; fname=$id; length=$f.length; dest=$d; ts=Get-Date; err=$err }
     } # end process
 }
 
@@ -140,7 +140,7 @@ process {
             attrib -p +u $out_path # we can unpin it immediately to free up space
             } catch { $err = $_ } 
         }
-        [pscustomobject]@{ suffix=$suffix; fname=$id; length=$f.length; dest=$d; ts=Get-Date; err=$err } | select * -ExpandProperty dest -ExcludeProperty dest
-} # end process
+    [pscustomobject]@{ suffix=$suffix; fname=$id; length=$f.length; dest=$d; ts=Get-Date; err=$err }
+    } # end process
 
 }

@@ -18,7 +18,7 @@ $maica__Client_Note__c_map = @{}
 Import-Csv "$unzippedRoot\maica__Client_Note__c_map.csv" | where Legacy_Case_Note_ID__c -gt '' | 
 ForEach-Object { $maica__Client_Note__c_map[$_.Legacy_Case_Note_ID__c] = $_.Id }
 
-$maica__Client_Note__c_map.Count # 46789 => 15455
+$maica__Client_Note__c_map.Count # 46789 => 15455 => 15491
 
 
 
@@ -149,8 +149,8 @@ Append-Accdb -Path "$unzippedRoot\Case_Note__c.accdb"
 # Instead we send Vertic a pre-mapped "update" csv dataset ready for SF Data Loader
 
 # PRECONDITIONS
-$contact_in_scope.count # 36427
-$maica__Client_Note__c_map.count # 15455
+$contact_in_scope.count # 36432
+$maica__Client_Note__c_map.count # 15491
 
 Import-Csv "$unzippedRoot\Case_Note__c.csv" -Encoding UTF8 | 
 Where-Object LastModifiedDate -ge '2022' | 

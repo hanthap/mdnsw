@@ -8,11 +8,13 @@ $document = @{}
 Import-Csv "$unzippedRoot\Document-Map.csv" -Encoding UTF8 | 
 ForEach-Object { $document[$_.Id] = $_ } 
 
-$attachment.Count
-$document.count
+$attachment.Count # 36237
+$document.count # 9628
 
 $attachment['00P3b00001T3bu4EAB']
 
+
+$attachment.'00P3b00001T2Nc5EAF'
 
 $attachment.'00P5c00001qXWxBEAW'
 #--------------------------------------------------------------------------------------------
@@ -21,7 +23,7 @@ $shell = New-Object -Com Shell.Application
 $unzipped_namespace = $shell.NameSpace( $unzippedRoot )
 
 # #5 is the first to include Attachments. 
-$suffix = 14
+$suffix = 35
 $zip_file_path = "$zipFileStem$suffix.zip"
 $source_namespace = $shell.NameSpace( $zip_file_path )
 

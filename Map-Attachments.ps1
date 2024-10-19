@@ -123,10 +123,13 @@ $any_user.Count # 146
 
 # To ensure each filename is unique, we insert #[AttachmentId] just before the file extension
 
-function unique_fname( $fn, $id ) {
+function unique_fname( $fn, $id, $ext ) {
     $s = [System.IO.Path]::GetFileNameWithoutExtension($fn)
+    $s = $s -replace '[:\?]', '' # replace characters not allowed in the name of a WIndows file system object
     $x = [System.IO.Path]::GetExtension($fn)
-   return ($s + ' #' + $id + $x )
+    if ( $x -eq '' ) { $x = ".$ext" } # for some Documents, the extension is only in the Type property
+    $s = $s.subString(0, [System.Math]::Min(120, $s.Length)) # always chop at this stage 
+   return ($s.Trim() + ' #' + $id + $x )
 }
 
 #------------------------------------------------------------
@@ -145,12 +148,12 @@ function coalesce( $a ) {
 }
 
 #------------------------------------------------------------
-
+# ONLY use this for folder paths without filenames. It cuts the string to a max length and might remove a file extension
 function clean_path( $s ) {
-    $s = $s -replace '[:\?]', '' # replace characters not allowed in the name of a file system object
-    # truncate to first 80 characters just so the full path is less than file system limit of 260 characters
-    $s = $s.subString(0, [System.Math]::Min(80, $s.Length)) 
-    return $s.Trim()
+    $s = $s -replace '[:\?]', '' # replace characters not allowed in the name of a Windows file system object
+    # PROBLEM: some filestems include '.' - we can't just assume that whatever comes after the last dot is always a file extension
+    $s = $s.subString(0, [System.Math]::Min(120, $s.Length)) 
+    return ($s.Trim() + $x ) # trim in case it cuts after a space
 }
 
 #------------------------------------------------------------
@@ -172,7 +175,7 @@ Import-Csv "$unzippedRoot\Attachment.csv" -Encoding UTF8 |
 select *, 
 @{ n='noise_level'; e={ $noise_image[$_.ContentType+', '+$_.BodyLength] } } ,
 @{ n='doclib'; e={ if ( $sd_user[$_.OwnerId] ) { 'Service Delivery' } else { 'Other' } } },
-@{ n='unique_fname'; e={ unique_fname ( clean_path $_.Name ) $_.Id } }, # shorten BEFORE adding unique ID suffix
+@{ n='unique_fname'; e={ unique_fname $_.Name $_.Id } }, # shorten BEFORE adding unique ID suffix
 @{ n='out_folder'; e= {
     coalesce @(
         $contact[$_.ParentId].folder_name,
@@ -185,8 +188,8 @@ select *,
         $account[$_.AccountId].folder_name,
         $task[$_.ParentId].subject, 
         # now for the really persistent orphans
-        ('_ ParentId #'+$_.ParentId), # parentheses required
-        ('_ AccountId #'+$_.AccountId)
+        ('Object Id #'+$_.ParentId), # parentheses required
+        ('AccountId #'+$_.AccountId)
          ) } } | 
 select Id, ParentId, AccountId,
     doclib, 
@@ -211,14 +214,13 @@ $attachment['00PPr0000057BS5MAM']
 
 #>
 
-
 Import-Csv "$unzippedRoot\Document.csv" -Encoding UTF8 | 
 select *, 
 @{ n='doclib'; e={ if ( $sd_user[$_.AuthorId] ) { 'Service Delivery' } else { 'Other' } } },
-@{ n='unique_fname'; e={ unique_fname ( clean_path $_.Name ) $_.Id } }, # shorten BEFORE adding unique ID suffix
+@{ n='unique_fname'; e={ unique_fname $_.Name $_.Id $_.Type } },
 @{ n='author_email'; e= { $any_user[$_.AuthorId].email } }, 
 @{ n='out_folder'; e= { "Document`\$($any_user[$_.AuthorId].email)`\Folder #$($_.FolderId)" } } | 
-select Id, FolderId, author_email,
+select Id, FolderId, author_email, Type, 
     doclib, 
     CreatedDate,
     @{ n='folder'; e={ clean_path $_.out_folder }}, 
@@ -226,4 +228,4 @@ select Id, FolderId, author_email,
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv"
 
 # 
-Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 10
+Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Document-Map.csv" | select -First 1
