@@ -64,7 +64,7 @@ LastModifiedById,
 # ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry,
 @{Name='BillingAddress'; Expression={ Clean-Address $_.BillingStreet, $_.BillingCity, $_.BillingState, $_.BillingPostalCode, $_.BillingCountry } }, 
 @{Name='ShippingAddress'; Expression={ Clean-Address $_.ShippingStreet, $_.ShippingCity, $_.ShippingState, $_.ShippingPostalCode, $_.ShippingCountry } }  |
-Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\Account_subset.csv" 
+Export-Csv -NoTypeInformation -Delimiter '|' -Encoding UTF8 -Path "$unzippedRoot\Account_subset.csv"  # N=31,742 for pre-2022
 
 #--------------------------------------------------------------------
 # CONTACTS
@@ -499,9 +499,12 @@ Export-Csv -Delimiter '|' -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot
 
 #-------------------------------------------------------------------------------
 # CASE NOTES
-
+ 
+$contact_in_scope.count # 36432
+$contact_ids_to_merge.count # 181
 Import-Csv "$unzippedRoot\Case_Note__c.csv"  -Encoding UTF8 | 
-Where-Object LastModifiedDate -ge '2022' | # Only migrate case notes from 2022-2024 (Jess, 30/9/24)
+#Where-Object LastModifiedDate -ge '2022' | # Only migrate case notes from 2022-2024 (Jess, 30/9/24)
+Where-Object LastModifiedDate -lt '2022' | # On second thoughts we need the whole history, for compliance (Jess/Milv/Harry 22/10/24)
 Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
 # Redact-Columns -ColumnNames @( 'Name' ) |  #  Keith asked for Action_c to be unmasked 30/9/24
 Select-Object Id,
@@ -605,3 +608,34 @@ Where-KeyMatch -KeyName RelationId -LookupTable $contact_in_scope |
 Update-Properties -PropertyList @('RelationId') -HashTable $contact_ids_to_merge | 
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\TaskRelation_subset.csv"
 #>
+
+
+#-------------------------------------------------------------------------------
+
+$contact_in_scope.count # 36432
+$contact_ids_to_merge.count # 181
+Import-Csv "C:\Users\PeterLuckock\Downloads\OldOrg\ExportPlus\Note.csv"  -Encoding UTF8 | 
+#Where-KeyMatch -KeyName Client_Name__c -LookupTable $contact_in_scope |
+# Redact-Columns -ColumnNames @( 'Name' ) |  #  Keith asked for Action_c to be unmasked 30/9/24
+Select-Object Id,
+ParentId,
+AccountId,
+Title,
+IsPrivate,
+Body,
+OwnerId,
+CreatedDate,
+CreatedById,
+LastModifiedDate,
+LastModifiedById,
+SystemModstamp,
+Contact.Id,
+ONEN_Household__c.Id,
+Opportunity.Id,
+Account.Id |
+# Currently no (in scope) case notes are related to merged contacts, but just in case...
+Update-Properties -PropertyList @( 'Contact.Id' ) -HashTable $contact_ids_to_merge | 
+Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Note_handoff.csv"
+
+
+Import-Csv -Encoding UTF8 -Path "$unzippedRoot\Note_handoff.csv" | where 'Original_Contact.Id' -ne ''

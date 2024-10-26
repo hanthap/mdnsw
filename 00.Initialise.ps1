@@ -12,7 +12,9 @@ $OutputEncoding  = [System.Text.Encoding]::UTF8
 $zipRoot = "$env:OneDriveCommercial\20241017"
 
 # the latest zip filenames all start with this string
-$zipFileStem = "$zipRoot\WE_00D80000000KHPpEAO_" # this stem will change with each new batch
+$zipFileStem = "$zipRoot\WE_00D80000000KHPpEAO_" # this stem does NOT change with each new batch
+
+$zipFileStemCD = "$zipRoot\ContentVersionFile\ContentDocument_" # was added to scope after go-live!
 
 # general work folder (not sync'd to cloud SPO)
 $downloads = "$env:USERPROFILE\Downloads"

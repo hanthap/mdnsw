@@ -52,7 +52,7 @@ Select-Object Id, FirstName, LastName,
     $s[0] + '\' + $s
     }} |
 ForEach-Object { $contact[$_.Id] = $_ } 
-$contact.Count # 39564 => 39567
+$contact.Count # 39564 => 39567 => 39572
 
 $contact.'0033b00002UVlGBAA1'
 
@@ -74,7 +74,7 @@ $campaign = @{}
 Import-Csv "$unzippedRoot\Campaign.csv" -Encoding UTF8 | 
 Select-Object Id, Name, @{ n='folder_name'; e={ $_.Name +' #'+$_.Id }} |
 ForEach-Object { $campaign[$_.Id] = $_ } 
-$campaign.Count #  7771
+$campaign.Count #  7771 => 7773
 
 #------------------------------------------------------------
 
@@ -88,7 +88,7 @@ Select-Object Id, WhoId, WhatId, AccountId, Client_Name__c, Subject,
 @{ n='client'; e={ $contact[$_.Client_Name__c] } }, 
 @{ n='account'; e={ $account[$_.AccountId] } } |
 ForEach-Object { $task[$_.Id] = $_ } 
-$task.Count # 52433 => 52677
+$task.Count # 52433 => 52677 => 52735
 
 #------------------------------------------------------------
 
@@ -101,8 +101,7 @@ Select-Object Id, Client_Name__c, Name, Carer_Name__c, Case_Worker__c,
 @{ n='carer'; e={ $contact[$_.Carer_Name__c] } },
 @{ n='case_worker'; e={ $contact[$_.Case_Worker__c] } } |
 ForEach-Object { $casenote[$_.Id] = $_ } 
-$casenote.Count # 52027 => 52406
-
+$casenote.Count # 52027 => 52406 => 52441
 
 #------------------------------------------------------------
 
@@ -201,6 +200,36 @@ select Id, ParentId, AccountId,
 Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\Attachment-Map.csv"
 
 #------------------------------------------------------------
+
+Import-Csv "$unzippedRoot\ContentDocumentLink.csv" -Encoding UTF8 |
+select *, 
+# @{ n='noise_level'; e={ $noise_image[$_.ContentType+', '+$_.BodyLength] } } ,
+@{ n='doclib'; e={ if ( $sd_user[$_.OwnerId] ) { 'Service Delivery' } else { 'Other' } } },
+# @{ n='unique_fname'; e={ unique_fname $_.Name $_.Id } }, # shorten BEFORE adding unique ID suffix
+@{ n='out_folder'; e= {
+    coalesce @(
+        $contact[$_.LinkedEntityId].folder_name,
+        $casenote[$_.LinkedEntityId].client.folder_name,
+        $task[$_.LinkedEntityId].who.folder_name,
+        $task[$_.LinkedEntityId].client.folder_name,
+        $casenote[$_.LinkedEntityId].carer.folder_name,
+        $casenote[$_.LinkedEntityId].case_worker.folder_name,
+        $task[$_.LinkedEntityId].account.folder_name,
+        $account[$_.AccountId].folder_name,
+        $task[$_.LinkedEntityId].subject, 
+        # now for the really persistent orphans
+        ('Object Id #'+$_.LinkedEntityId) # Parentheses required
+         ) } } | 
+select Id, LinkedEntityId, ContentDocumentId,
+    doclib, 
+#    CreatedDate,
+#    noise_level, 
+    @{ n='folder'; e={ clean_path $_.out_folder.name }}, # some folders are named after Task.Subject, which can be way too long
+    @{ n='type'; e={ type_name $_.out_folder.type }} |  
+#    unique_fname | 
+Export-Csv -NoTypeInformation -Encoding UTF8 -Path "$unzippedRoot\ContentDocumentLink-Map.csv"
+
+
 
 # Before starting or resuming Stage 2, we need to (re-)load our mapping details into a hashtable.
 <#
